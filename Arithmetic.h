@@ -14,6 +14,7 @@
 #include <xtensa/tie/xt_hifi2.h>
 
 #define ALWAYS_INLINE static inline __attribute__((always_inline))
+#define NEVER_INLINE static __attribute__((noinline))
 
 #define DIV_PRECISION 5		//be careful with too small values
 
@@ -117,6 +118,11 @@ ALWAYS_INLINE ae_f64 LeftShiftA(ae_f64 x, uint8_t shift)
 	return AE_SLAA64S(x, shift);
 }
 
+ALWAYS_INLINE ae_f32x2 LeftShiftA_32x2(ae_f32x2 x, uint8_t shift)
+{
+	return AE_SLAA32S(x, shift);
+}
+
 ALWAYS_INLINE ae_f64 RightShiftA(ae_f64 x, uint8_t shift)
 {
 	return AE_SRAA64(x, shift);
@@ -212,8 +218,9 @@ ALWAYS_INLINE ae_f32x2 Div(ae_f32x2 x, ae_f32x2 y)
 
 	xtbool2 resultIsNegative = AE_LT32(AE_XOR32(x, y), AE_ZERO32());
 	xtbool2 precisionAchieved;
-	xtbool2	isMaxValue;
-	xtbool2 isMinValue;
+
+	//flags for mid value:
+	xtbool2	isLimitValue;
 	xtbool2 ifLessThanX;
 	xtbool2 ifBiggerThanX;
 
@@ -244,33 +251,26 @@ ALWAYS_INLINE ae_f32x2 Div(ae_f32x2 x, ae_f32x2 y)
 		midY = Mul(mid, y);		//mid * y
 
 		precisionAchieved = AE_LE32(AE_ABS32S(Sub(midY, x)), precision);		//if current precision is good
-		isMaxValue = AE_EQ32(midY, AE_MOVDA32X2(INT32_MAX, INT32_MAX));			//if midY value is MAX, probably saturated
-		isMinValue = AE_EQ32(midY, AE_MOVDA32X2(INT32_MIN, INT32_MIN));			//if midY value is MIN
+		isLimitValue = AE_LE32(Sub(INT32_MAX, AE_ABS32S(mid)), precision);			//if mid value is close to MAX or MIN
 
 		//update isCalculated
-		//isCalculated = isCalculated | (precisionAchieved & !isMacValue & !isMinValue)
+		//isCalculated = isCalculated | precisionAchieved | isLimitValue
 		isCalculated = xtbool_join_xtbool2(
-							XT_ORB(
-									xtbool2_extract_0(isCalculated),
-									XT_AND(
-											XT_AND(
-													xtbool2_extract_0(precisionAchieved),
-													XT_XOR(xtbool2_extract_0(isMaxValue), 1)
+											XT_ORB(
+													xtbool2_extract_0(isCalculated),
+													XT_ORB(
+															xtbool2_extract_0(precisionAchieved),
+															xtbool2_extract_0(isLimitValue)
+															)
 													),
-											XT_XOR(xtbool2_extract_0(isMinValue), 1)
-											)
-									),
-							XT_ORB(
-									xtbool2_extract_0(isCalculated),
-									XT_AND(
-											XT_AND(
-													xtbool2_extract_1(precisionAchieved),
-													XT_XOR(xtbool2_extract_1(isMaxValue), 1)
-													),
-											XT_XOR(xtbool2_extract_1(isMinValue), 1)
-											)
-									)
-							);
+											XT_ORB(
+													xtbool2_extract_1(isCalculated),
+													XT_ORB(
+															xtbool2_extract_1(precisionAchieved),
+															xtbool2_extract_1(isLimitValue)
+															)
+													)
+											);
 
 		if ((int8_t)isCalculated == 3)
 		{
