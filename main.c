@@ -12,28 +12,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define INPUT_FILE_NAME "Input.wav"
+#define INPUT_FILE_NAME "Input0.5sec.wav"
 #define OUTPUT_FILE_NAME "Output.wav"
 #define FILE_HEADER_SIZE 44
 #define BYTES_PER_SAMPLE 4
 #define SAMPLE_RATE 48000
 #define CHANNELS 2
 
-#define	EXPANDER_THRESHOLD 0.06
-#define COMPRESSOR_THRESHOLD 0.5
-#define LIMITER_THRESHOLD 0.9
-#define RATIO 2
-#define SIGNAL_PROC_DIVIDER 4	//for Q29
+//Thresholds
+#define NOISE_THR 0.03
+#define	EXPANDER_HIGH_THR 0.4
+#define COMPRESSOR_LOW_THR 0.5
+#define LIMITER_THR 0.6
 
-#define FIXED_EXPANDER_THRESHOLD (doubleToFixed31(EXPANDER_THRESHOLD))
-#define FIXED_COMPRESSOR_THRESHOLD (doubleToFixed31(COMPRESSOR_THRESHOLD))
-#define FIXED_LIMITER_THRESHOLD (doubleToFixed31(LIMITER_THRESHOLD))
-#define FIXED_RATIO (doubleToFixed31((double)(RATIO) / (SIGNAL_PROC_DIVIDER)))
+//Ratios must be bigger than 1
+#define EXPANDER_RATIO 3
+#define COMPRESSOR_RATIO 3
 
-#define VECTOR_EXPANDER_THRESHOLD (int32ToF32x2(FIXED_EXPANDER_THRESHOLD, FIXED_EXPANDER_THRESHOLD))
-#define VECTOR_COMPRESSOR_THRESHOLD (int32ToF32x2(FIXED_COMPRESSOR_THRESHOLD, FIXED_COMPRESSOR_THRESHOLD))
-#define VECTOR_LIMITER_THRESHOLD (int32ToF32x2(FIXED_LIMITER_THRESHOLD, FIXED_LIMITER_THRESHOLD))
-#define VECTOR_RATIO (int32ToF32x2(FIXED_RATIO, FIXED_RATIO))
+#define FIX_NOISE_THR 			(doubleToFixed27(NOISE_THR))
+#define FIX_EXPANDER_HIGH_THR 	(doubleToFixed27(EXPANDER_HIGH_THR))
+#define FIX_COMPRESSOR_LOW_THR 	(doubleToFixed27(COMPRESSOR_LOW_THR))
+#define FIX_LIMITER_THR 		(doubleToFixed27(LIMITER_THR))
+#define FIX_EXPANDER_RATIO 		(doubleToFixed27((double)(EXPANDER_RATIO)))
+#define FIX_COMPRESSOR_RATIO 	(doubleToFixed27((double)(COMPRESSOR_RATIO)))
+
+#define VEC_NOISE_THR 			(int32ToF32x2(FIX_NOISE_THR, FIX_NOISE_THR))
+#define VEC_EXPANDER_HIGH_THR 	(int32ToF32x2(FIX_EXPANDER_HIGH_THR, FIX_EXPANDER_HIGH_THR))
+#define VEC_COMPRESSOR_LOW_THR 	(int32ToF32x2(FIX_COMPRESSOR_LOW_THR, FIX_COMPRESSOR_LOW_THR))
+#define VEC_LIMITER_THR 		(int32ToF32x2(FIX_LIMITER_THR, FIX_LIMITER_THR))
+#define VEC_EXPANDER_RATIO 		(int32ToF32x2(FIX_EXPANDER_RATIO, FIX_EXPANDER_RATIO))
+#define VEC_COMPRESSOR_RATIO 	(int32ToF32x2(FIX_COMPRESSOR_RATIO, FIX_COMPRESSOR_RATIO))
 
 #define RING_BUFF_SIZE 128
 #define DATA_BUFF_SIZE 1024		//must be twice bigger than RING_BUFF_SIZE
@@ -152,25 +160,25 @@ ALWAYS_INLINE void ringInitialization(RingBuff *ringBuff, int32_t *dataBuff)
 
 NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 {
-	uint16_t i;
-	ae_f32x2 gain;// = AE_MOVDA32X2(0x20000000, 0x20000000);
-	ae_f32x2 res = ringBuff->maxSample;
+	ae_f32x2 gain;
+	ae_f32x2 limGain;
+	ae_f32x2 maxSample27 = Q31ToQ27x2(ringBuff->maxSample);
 
 	xtbool2 isExpander;
 	xtbool2 isCompressor;
 	xtbool2 isLimiter;
 	xtbool2 isNoiseGate;
-	xtbool2 isCalculated;
-	xtbool2 resIsTooBig;
+	xtbool2 isCalculated = xtbool_join_xtbool2(0, 0);
+
 
 	//=== if NoiseGate ===
-	isNoiseGate = AE_LT32(ringBuff->maxSample, VECTOR_EXPANDER_THRESHOLD);
+	isNoiseGate = AE_LT32(maxSample27, VEC_NOISE_THR);
 	AE_MOVT32X2(gain, 0, isNoiseGate);		//if isNoiseGate, gain = 0
 	isCalculated = isNoiseGate;
 
-	//=== if Limiter ===
-	isLimiter = AE_LT32(VECTOR_LIMITER_THRESHOLD, res);
 
+	//=== if Limiter ===
+	isLimiter = AE_LT32(VEC_LIMITER_THR, maxSample27);
 	isLimiter = xtbool_join_xtbool2(
 									XT_ANDB(
 											xtbool2_extract_0(isLimiter),
@@ -181,24 +189,12 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 											XT_XORB(xtbool2_extract_1(isCalculated), 1)
 											)
 									);
-	isCalculated = xtbool_join_xtbool2(
-										XT_ORB(
-												xtbool2_extract_0(isCalculated),
-												xtbool2_extract_0(isLimiter)
-												),
-										XT_ORB(
-												xtbool2_extract_1(isCalculated),
-												xtbool2_extract_1(isLimiter)
-												)
-										);
 
-	//if isLimiter, gain = LIMITER_TRESHOLD / maxSample
-	AE_MOVT32X2(gain, Div(VECTOR_LIMITER_THRESHOLD, res), isLimiter);
+	AE_MOVT32X2(limGain, DivQ27x2(VEC_LIMITER_THR, maxSample27), isLimiter);
 
 
 	//=== if Expander ===
-	isExpander = AE_LT32(ringBuff->maxSample, VECTOR_COMPRESSOR_THRESHOLD);
-
+	isExpander = AE_LT32(maxSample27, VEC_EXPANDER_HIGH_THR);
 	isExpander = xtbool_join_xtbool2(
 									XT_ANDB(
 											xtbool2_extract_0(isExpander),
@@ -220,13 +216,18 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 												)
 										);
 
-	AE_MOVT32X2(res, Mul(ringBuff->maxSample, VECTOR_RATIO), isExpander);
+	AE_MOVT32X2(
+				gain,
+				Sub(VEC_EXPANDER_HIGH_THR, DivQ27x2(
+													Sub(VEC_EXPANDER_HIGH_THR, maxSample27),
+													VEC_EXPANDER_RATIO
+													)),
+				isExpander
+				);
 
-	resIsTooBig = AE_LT32(RightShiftA_32x2(VECTOR_LIMITER_THRESHOLD, 2), res);
-	AE_MOVT32X2(res, RightShiftA_32x2(VECTOR_LIMITER_THRESHOLD, 2), resIsTooBig);
 
 	//=== if Compressor ===
-	isCompressor = AE_LE32(VECTOR_COMPRESSOR_THRESHOLD, ringBuff->maxSample);
+	isCompressor = AE_LE32(VEC_COMPRESSOR_LOW_THR, maxSample27);
 
 	isCompressor = xtbool_join_xtbool2(
 									XT_ANDB(
@@ -249,16 +250,36 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 												)
 										);
 
-	AE_MOVT32X2(res, Div(ringBuff->maxSample, VECTOR_RATIO), isCompressor);
+	AE_MOVT32X2(
+				gain,
+				Add(VEC_COMPRESSOR_LOW_THR, DivQ27x2(
+													Sub(maxSample27, VEC_COMPRESSOR_LOW_THR),
+													VEC_COMPRESSOR_RATIO
+													)),
+				isCompressor
+				);
 
-	AE_MOVT32X2(gain, Div(res, ringBuff->maxSample), isExpander);
-	AE_MOVT32X2(gain, Div(res, ringBuff->maxSample), isCompressor);
 
-	ae_f32x2 result = Mul(ringBuff->samples[ringBuff->currNum], gain);
-	AE_MOVT32X2(result, LeftShiftA_32x2(result, 2), isExpander);
-	AE_MOVT32X2(result, RightShiftA_32x2(result, 2), isCompressor);
+	//=== if Expander or Compressor ===
+	AE_MOVT32X2(
+				gain,
+				DivQ27x2(gain, maxSample27),
+				xtbool_join_xtbool2(
+									XT_ORB(
+											xtbool2_extract_0(isExpander),
+											xtbool2_extract_0(isCompressor)
+											),
+									XT_ORB(
+											xtbool2_extract_1(isExpander),
+											xtbool2_extract_1(isCompressor)
+											))
+				);
 
-	return result;
+
+	//=== if Limiter, Limiter = Compressor/Limiter min ===
+	AE_MOVT32X2(gain, AE_MIN32(gain, limGain), isLimiter);
+
+	return Q27ToQ31x2(MulQ27x2(Q31ToQ27x2(ringBuff->samples[ringBuff->currNum]), gain));
 }
 
 void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff)

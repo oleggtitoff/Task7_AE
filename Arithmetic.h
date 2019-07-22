@@ -42,6 +42,34 @@ ALWAYS_INLINE int32_t doubleToFixed31(double x)
 	return (int32_t)(x * (double)(1LL << 31));
 }
 
+ALWAYS_INLINE int32_t doubleToFixed29(double x)
+{
+	if (x >= 4)
+	{
+		return INT32_MAX;
+	}
+	else if (x < -4)
+	{
+		return INT32_MIN;
+	}
+
+	return (int32_t)(x * (double)(1LL << 29));
+}
+
+ALWAYS_INLINE int32_t doubleToFixed27(double x)
+{
+	if (x >= 16)
+	{
+		return INT32_MAX;
+	}
+	else if (x < -16)
+	{
+		return INT32_MIN;
+	}
+
+	return (int32_t)(x * (double)(1LL << 27));
+}
+
 ALWAYS_INLINE ae_f32x2 int16ToF32x2(int16_t x, int16_t y)
 {
 	return AE_MOVF32X2_FROMINT32X2(AE_MOVDA32X2((int32_t)x << 16, (int32_t)y << 16));
@@ -123,6 +151,13 @@ ALWAYS_INLINE ae_f32x2 LeftShiftA_32x2(ae_f32x2 x, uint8_t shift)
 	return AE_SLAA32S(x, shift);
 }
 
+ALWAYS_INLINE F64x2 LeftShiftA_64x2(F64x2 x, uint8_t shift)
+{
+	x.h = AE_SLAA64S(x.h, shift);
+	x.l = AE_SLAA64S(x.l, shift);
+	return x;
+}
+
 ALWAYS_INLINE ae_f64 RightShiftA(ae_f64 x, uint8_t shift)
 {
 	return AE_SRAA64(x, shift);
@@ -143,6 +178,21 @@ ALWAYS_INLINE ae_f32x2 RightShiftA_32x2(ae_f32x2 x, uint8_t shift)
 ALWAYS_INLINE ae_f64 RightShiftL(ae_f64 x, uint8_t shift)
 {
 	return AE_SRLA64(x, shift);
+}
+
+ALWAYS_INLINE ae_f32x2 Q31ToQ29x2(ae_f32x2 x)
+{
+	return RightShiftA_32x2(x, 2);
+}
+
+ALWAYS_INLINE ae_f32x2 Q31ToQ27x2(ae_f32x2 x)
+{
+	return RightShiftA_32x2(x, 4);
+}
+
+ALWAYS_INLINE ae_f32x2 Q27ToQ31x2(ae_f32x2 x)
+{
+	return LeftShiftA_32x2(x, 4);
 }
 
 ALWAYS_INLINE ae_f32x2 roundF64x2ToF32x2(F64x2 x)
@@ -184,6 +234,16 @@ ALWAYS_INLINE F64x2 Mul64(ae_f32x2 x, ae_f32x2 y)
 	res.h = AE_MULF32S_HH(x, y);
 	res.l = AE_MULF32S_LL(x, y);
 	return res;
+}
+
+ALWAYS_INLINE ae_f32x2 MulQ29x2(ae_f32x2 x, ae_f32x2 y)
+{
+	return roundF64x2ToF32x2(LeftShiftA_64x2(Mul64(x, y), 2));
+}
+
+ALWAYS_INLINE ae_f32x2 MulQ27x2(ae_f32x2 x, ae_f32x2 y)
+{
+	return roundF64x2ToF32x2(LeftShiftA_64x2(Mul64(x, y), 4));
 }
 
 ALWAYS_INLINE F64x2 Mac(F64x2 acc, ae_f32x2 x, ae_f32x2 y)
@@ -249,6 +309,164 @@ ALWAYS_INLINE ae_f32x2 Div(ae_f32x2 x, ae_f32x2 y)
 		AE_MOVF32X2(mid, Add(low, RightShiftA_32x2(Sub(high, low), 1)), isCalculated);		//mid = low + ((high - low) / 2),
 																							//if is not calculated yet
 		midY = Mul(mid, y);		//mid * y
+
+		precisionAchieved = AE_LE32(AE_ABS32S(Sub(midY, x)), precision);		//if current precision is good
+		isLimitValue = AE_LE32(Sub(INT32_MAX, AE_ABS32S(mid)), precision);			//if mid value is close to MAX or MIN
+
+		//update isCalculated
+		//isCalculated = isCalculated | precisionAchieved | isLimitValue
+		isCalculated = xtbool_join_xtbool2(
+											XT_ORB(
+													xtbool2_extract_0(isCalculated),
+													XT_ORB(
+															xtbool2_extract_0(precisionAchieved),
+															xtbool2_extract_0(isLimitValue)
+															)
+													),
+											XT_ORB(
+													xtbool2_extract_1(isCalculated),
+													XT_ORB(
+															xtbool2_extract_1(precisionAchieved),
+															xtbool2_extract_1(isLimitValue)
+															)
+													)
+											);
+
+		if ((int8_t)isCalculated == 3)
+		{
+			AE_MOVT32X2(mid, AE_NEG32(mid), resultIsNegative);		//unsigned result to signed
+			return mid;
+		}
+
+		ifLessThanX = AE_LT32(midY, x);				//if midY < x
+		ifBiggerThanX = AE_LE32(x, midY);			//if midY >= x
+
+		AE_MOVT32X2(low, mid, ifLessThanX);			//if midY < x, low = mid
+		AE_MOVT32X2(high, mid, ifBiggerThanX);		//if midY >= x, high = mid
+	}
+}
+
+ALWAYS_INLINE ae_f32x2 DivQ29x2(ae_f32x2 x, ae_f32x2 y)
+{
+	ae_f32x2 precision = AE_MOVDA32X2(DIV_PRECISION, DIV_PRECISION);
+
+	ae_f32x2 low = AE_ZERO32();								//low boundary
+	ae_f32x2 high = AE_MOVDA32X2(INT32_MAX, INT32_MAX);		//high boundary
+	ae_f32x2 mid;											//middle value
+	ae_f32x2 midY;											//mid * y
+
+	xtbool2 resultIsNegative = AE_LT32(AE_XOR32(x, y), AE_ZERO32());
+	xtbool2 precisionAchieved;
+
+	//flags for mid value:
+	xtbool2	isLimitValue;
+	xtbool2 ifLessThanX;
+	xtbool2 ifBiggerThanX;
+
+	xtbool2 yIs0 = AE_EQ32(y, AE_ZERO32());			//if y == 0
+	xtbool2 xIs0 = AE_EQ32(x, AE_ZERO32());			//if x == 0
+
+	//isCalculated = yIs0 | xIs0
+	xtbool2 isCalculated = xtbool_join_xtbool2(
+								XT_ORB(xtbool2_extract_0(yIs0), xtbool2_extract_0(xIs0)),
+								XT_ORB(xtbool2_extract_1(yIs0), xtbool2_extract_1(xIs0))
+								);
+
+	AE_MOVT32X2(mid, AE_ZERO32(), xIs0);							//if x == 0, mid = 0
+	AE_MOVT32X2(mid, AE_MOVDA32X2(INT32_MAX, INT32_MAX), yIs0);		//if y == 0, mid = MAX
+
+	if ((int8_t)isCalculated == 3)
+	{
+		return mid;
+	}
+
+	x = AE_ABS32S(x);		//abs values
+	y = AE_ABS32S(y);
+
+	while (1)
+	{
+		AE_MOVF32X2(mid, Add(low, RightShiftA_32x2(Sub(high, low), 1)), isCalculated);		//mid = low + ((high - low) / 2),
+																							//if is not calculated yet
+		midY = MulQ29x2(mid, y);		//mid * y
+
+		precisionAchieved = AE_LE32(AE_ABS32S(Sub(midY, x)), precision);		//if current precision is good
+		isLimitValue = AE_LE32(Sub(INT32_MAX, AE_ABS32S(mid)), precision);			//if mid value is close to MAX or MIN
+
+		//update isCalculated
+		//isCalculated = isCalculated | precisionAchieved | isLimitValue
+		isCalculated = xtbool_join_xtbool2(
+											XT_ORB(
+													xtbool2_extract_0(isCalculated),
+													XT_ORB(
+															xtbool2_extract_0(precisionAchieved),
+															xtbool2_extract_0(isLimitValue)
+															)
+													),
+											XT_ORB(
+													xtbool2_extract_1(isCalculated),
+													XT_ORB(
+															xtbool2_extract_1(precisionAchieved),
+															xtbool2_extract_1(isLimitValue)
+															)
+													)
+											);
+
+		if ((int8_t)isCalculated == 3)
+		{
+			AE_MOVT32X2(mid, AE_NEG32(mid), resultIsNegative);		//unsigned result to signed
+			return mid;
+		}
+
+		ifLessThanX = AE_LT32(midY, x);				//if midY < x
+		ifBiggerThanX = AE_LE32(x, midY);			//if midY >= x
+
+		AE_MOVT32X2(low, mid, ifLessThanX);			//if midY < x, low = mid
+		AE_MOVT32X2(high, mid, ifBiggerThanX);		//if midY >= x, high = mid
+	}
+}
+
+ALWAYS_INLINE ae_f32x2 DivQ27x2(ae_f32x2 x, ae_f32x2 y)
+{
+	ae_f32x2 precision = AE_MOVDA32X2(DIV_PRECISION, DIV_PRECISION);
+
+	ae_f32x2 low = AE_ZERO32();								//low boundary
+	ae_f32x2 high = AE_MOVDA32X2(INT32_MAX, INT32_MAX);		//high boundary
+	ae_f32x2 mid;											//middle value
+	ae_f32x2 midY;											//mid * y
+
+	xtbool2 resultIsNegative = AE_LT32(AE_XOR32(x, y), AE_ZERO32());
+	xtbool2 precisionAchieved;
+
+	//flags for mid value:
+	xtbool2	isLimitValue;
+	xtbool2 ifLessThanX;
+	xtbool2 ifBiggerThanX;
+
+	xtbool2 yIs0 = AE_EQ32(y, AE_ZERO32());			//if y == 0
+	xtbool2 xIs0 = AE_EQ32(x, AE_ZERO32());			//if x == 0
+
+	//isCalculated = yIs0 | xIs0
+	xtbool2 isCalculated = xtbool_join_xtbool2(
+								XT_ORB(xtbool2_extract_0(yIs0), xtbool2_extract_0(xIs0)),
+								XT_ORB(xtbool2_extract_1(yIs0), xtbool2_extract_1(xIs0))
+								);
+
+	AE_MOVT32X2(mid, AE_ZERO32(), xIs0);							//if x == 0, mid = 0
+	AE_MOVT32X2(mid, AE_MOVDA32X2(INT32_MAX, INT32_MAX), yIs0);		//if y == 0, mid = MAX
+
+	if ((int8_t)isCalculated == 3)
+	{
+		return mid;
+	}
+
+	x = AE_ABS32S(x);		//abs values
+	y = AE_ABS32S(y);
+
+	while (1)
+	{
+		AE_MOVF32X2(mid, Add(low, RightShiftA_32x2(Sub(high, low), 1)), isCalculated);		//mid = low + ((high - low) / 2),
+																							//if is not calculated yet
+		midY = MulQ27x2(mid, y);		//mid * y
 
 		precisionAchieved = AE_LE32(AE_ABS32S(Sub(midY, x)), precision);		//if current precision is good
 		isLimitValue = AE_LE32(Sub(INT32_MAX, AE_ABS32S(mid)), precision);			//if mid value is close to MAX or MIN
