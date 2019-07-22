@@ -1,17 +1,17 @@
-**** Incremental Build [Mon, 22 Jul 2019 17:50:22] ****
+**** Incremental Build [Mon, 22 Jul 2019 20:02:04] ****
  Project: Task7_AE
  Configuration: hifi3_bd5
  Build Target: Release
 ********************************
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-xcc" -c -g -O2 -fmessage-length=0 -I "\"C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE\"" -DPROC_hifi3_bd5 -DCONFIG_hifi3_bd5 --xtensa-system=C:/usr/xtensa/XtDevTools/install/builds/RI-2019.1-win32/hifi3_bd5/config --xtensa-core=hifi3_bd5 --xtensa-params= "\"C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/main.c\"" -o "\"C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/main.o\"" 
-Time taken: 1633 ms 
+Time taken: 1590 ms 
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-xc++" -Wl,@C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/objfiles.list -o C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/Task7_AE.minsize -mlsp=sim -Wl,-r -nostdlib --xtensa-system=C:/usr/xtensa/XtDevTools/install/builds/RI-2019.1-win32/hifi3_bd5/config --xtensa-core=hifi3_bd5 --xtensa-params= 
-Time taken: 434 ms 
+Time taken: 529 ms 
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-xc++" -Wl,@C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/objfiles.list -o C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/Task7_AE -mlsp=sim --xtensa-system=C:/usr/xtensa/XtDevTools/install/builds/RI-2019.1-win32/hifi3_bd5/config --xtensa-core=hifi3_bd5 --xtensa-params= 
-Time taken: 602 ms 
+Time taken: 717 ms 
 
 ******* Code size summary *****
 
@@ -22,10 +22,10 @@ literal	    668	      0	      0	      0	    668	    29c	C:/usr/xtensa/Xplorer-8.
 other  	    903	   1920	    892	   1128	   4843	   12eb	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/Task7_AE
 Total  	  25496	   1920	    892	   1128	  29436	   72fc	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Release/Task7_AE
 
-Time taken: 278 ms 
+Time taken: 229 ms 
 
 ******* ************** *****
 
 Build successful !!
-Total time taken: 3.204 secs
-**** Build Finished [Mon, 22 Jul 2019 17:50:25] ****
+Total time taken: 3.097 secs
+**** Build Finished [Mon, 22 Jul 2019 20:02:07] ****

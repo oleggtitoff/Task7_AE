@@ -19,22 +19,22 @@
 #define SAMPLE_RATE 48000
 #define CHANNELS 2
 
-//Thresholds
+//Thresholds (double!)
 #define NOISE_THR 0.03
 #define	EXPANDER_HIGH_THR 0.4
 #define COMPRESSOR_LOW_THR 0.5
 #define LIMITER_THR 0.6
 
-//Ratios must be bigger than 1
-#define EXPANDER_RATIO 3
-#define COMPRESSOR_RATIO 3
+//Ratios must be bigger than 1 (double!)
+#define EXPANDER_RATIO 3.0
+#define COMPRESSOR_RATIO 3.0
 
 #define FIX_NOISE_THR 			(doubleToFixed27(NOISE_THR))
 #define FIX_EXPANDER_HIGH_THR 	(doubleToFixed27(EXPANDER_HIGH_THR))
 #define FIX_COMPRESSOR_LOW_THR 	(doubleToFixed27(COMPRESSOR_LOW_THR))
 #define FIX_LIMITER_THR 		(doubleToFixed27(LIMITER_THR))
-#define FIX_EXPANDER_RATIO 		(doubleToFixed27((double)(EXPANDER_RATIO)))
-#define FIX_COMPRESSOR_RATIO 	(doubleToFixed27((double)(COMPRESSOR_RATIO)))
+#define FIX_EXPANDER_RATIO 		(doubleToFixed27(EXPANDER_RATIO))
+#define FIX_COMPRESSOR_RATIO 	(doubleToFixed27(COMPRESSOR_RATIO))
 
 #define VEC_NOISE_THR 			(int32ToF32x2(FIX_NOISE_THR, FIX_NOISE_THR))
 #define VEC_EXPANDER_HIGH_THR 	(int32ToF32x2(FIX_EXPANDER_HIGH_THR, FIX_EXPANDER_HIGH_THR))
@@ -42,6 +42,11 @@
 #define VEC_LIMITER_THR 		(int32ToF32x2(FIX_LIMITER_THR, FIX_LIMITER_THR))
 #define VEC_EXPANDER_RATIO 		(int32ToF32x2(FIX_EXPANDER_RATIO, FIX_EXPANDER_RATIO))
 #define VEC_COMPRESSOR_RATIO 	(int32ToF32x2(FIX_COMPRESSOR_RATIO, FIX_COMPRESSOR_RATIO))
+
+#define EXPANDER_C1 (Sub((VEC_EXPANDER_HIGH_THR), (DivQ27x2((VEC_EXPANDER_HIGH_THR), (VEC_EXPANDER_RATIO)))))
+#define EXPANDER_C2 (Div(int32ToF32x2(doubleToFixed27(1), doubleToFixed27(1)), VEC_EXPANDER_RATIO))
+#define COMPRESSOR_C1 (Add((VEC_COMPRESSOR_LOW_THR), (DivQ27x2((VEC_COMPRESSOR_LOW_THR), (VEC_COMPRESSOR_RATIO)))))
+#define COMPRESSOR_C2 (Div(int32ToF32x2(doubleToFixed27(1), doubleToFixed27(1)), VEC_COMPRESSOR_RATIO))
 
 #define RING_BUFF_SIZE 128
 #define DATA_BUFF_SIZE 1024		//must be twice bigger than RING_BUFF_SIZE
@@ -281,6 +286,108 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 
 	return Q27ToQ31x2(MulQ27x2(Q31ToQ27x2(ringBuff->samples[ringBuff->currNum]), gain));
 }
+
+//NEVER_INLINE ae_f32x2 signalProc1(RingBuff *ringBuff)
+//{
+//	ae_f32x2 gain = AE_MOVF32X2_FROMINT32X2(AE_MOVDA32X2(0x07ffffff, 0x07ffffff));
+//	ae_f32x2 limGain;
+//	ae_f32x2 maxSample27 = Q31ToQ27x2(ringBuff->maxSample);
+//
+//	xtbool2 isExpander;
+//	xtbool2 isCompressor;
+//	xtbool2 isLimiter;
+//	xtbool2 isNoiseGate;
+//	xtbool2 isCalculated = xtbool_join_xtbool2(0, 0);
+//
+//
+//	//=== if NoiseGate ===
+//	isNoiseGate = AE_LT32(maxSample27, VEC_NOISE_THR);
+//	AE_MOVT32X2(gain, 0, isNoiseGate);		//if isNoiseGate, gain = 0
+//	isCalculated = isNoiseGate;
+//
+//
+//	//=== if Limiter ===
+//	isLimiter = AE_LT32(VEC_LIMITER_THR, maxSample27);
+//	isLimiter = xtbool_join_xtbool2(
+//									XT_ANDB(
+//											xtbool2_extract_0(isLimiter),
+//											XT_XORB(xtbool2_extract_0(isCalculated), 1)
+//											),
+//									XT_ANDB(
+//											xtbool2_extract_1(isLimiter),
+//											XT_XORB(xtbool2_extract_1(isCalculated), 1)
+//											)
+//									);
+//
+//	AE_MOVT32X2(limGain, DivQ27x2(VEC_LIMITER_THR, maxSample27), isLimiter);
+//
+//
+//	//=== if Expander ===
+//	isExpander = AE_LT32(maxSample27, VEC_EXPANDER_HIGH_THR);
+//	isExpander = xtbool_join_xtbool2(
+//									XT_ANDB(
+//											xtbool2_extract_0(isExpander),
+//											XT_XORB(xtbool2_extract_0(isCalculated), 1)
+//											),
+//									XT_ANDB(
+//											xtbool2_extract_1(isExpander),
+//											XT_XORB(xtbool2_extract_1(isCalculated), 1)
+//											)
+//									);
+//	isCalculated = xtbool_join_xtbool2(
+//										XT_ORB(
+//												xtbool2_extract_0(isCalculated),
+//												xtbool2_extract_0(isExpander)
+//												),
+//										XT_ORB(
+//												xtbool2_extract_1(isCalculated),
+//												xtbool2_extract_1(isExpander)
+//												)
+//										);
+//
+//	AE_MOVT32X2(
+//				gain,
+//				Add(DivQ27x2(EXPANDER_C1, maxSample27), EXPANDER_C2),
+//				isExpander
+//				);
+//
+//
+//	//=== if Compressor ===
+//	isCompressor = AE_LE32(VEC_COMPRESSOR_LOW_THR, maxSample27);
+//
+//	isCompressor = xtbool_join_xtbool2(
+//									XT_ANDB(
+//											xtbool2_extract_0(isCompressor),
+//											XT_XORB(xtbool2_extract_0(isCalculated), 1)
+//											),
+//									XT_ANDB(
+//											xtbool2_extract_1(isCompressor),
+//											XT_XORB(xtbool2_extract_1(isCalculated), 1)
+//											)
+//									);
+//	isCalculated = xtbool_join_xtbool2(
+//										XT_ORB(
+//												xtbool2_extract_0(isCalculated),
+//												xtbool2_extract_0(isCompressor)
+//												),
+//										XT_ORB(
+//												xtbool2_extract_1(isCalculated),
+//												xtbool2_extract_1(isCompressor)
+//												)
+//										);
+//
+//	AE_MOVT32X2(
+//				gain,
+//				Sub(DivQ27x2(COMPRESSOR_C1, maxSample27), COMPRESSOR_C2),
+//				isCompressor
+//				);
+//
+//
+//	//=== if Limiter, Limiter = Compressor/Limiter min ===
+//	AE_MOVT32X2(gain, AE_MIN32(gain, limGain), isLimiter);
+//
+//	return Q27ToQ31x2(MulQ27x2(Q31ToQ27x2(ringBuff->samples[ringBuff->currNum]), gain));
+//}
 
 void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff)
 {
