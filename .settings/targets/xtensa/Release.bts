@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<BuildTarget version="1.0" tool="xtensa">
+<BuildTarget tool="xtensa" version="1.0">
     <BuildSettings>
         <BaseSettings path="project">
             <CompilerOptions>
@@ -10,7 +10,7 @@
                     </FlagValueMapEntry>
                     <FlagValueMapEntry>
                         <key>Optimization</key>
-                        <value level="2" flag="-O" use="true"/>
+                        <value level="3" flag="-O" use="true"/>
                     </FlagValueMapEntry>
                 </FlagValueMapOptions>
             </CompilerOptions>
@@ -21,7 +21,7 @@
                         <value selected="true"/>
                     </BooleanMapEntry>
                 </BooleanMapOptions>
-                <LinkerSupport value="sim" key="-mlsp=" custom="false"/>
+                <LinkerSupport custom="false" key="-mlsp=" value="sim"/>
             </LinkerOptions>
         </BaseSettings>
     </BuildSettings>

@@ -19,34 +19,15 @@
 #define SAMPLE_RATE 48000
 #define CHANNELS 2
 
-//Thresholds (double!)
-#define NOISE_THR 0.03
-#define	EXPANDER_HIGH_THR 0.4
-#define COMPRESSOR_LOW_THR 0.5
-#define LIMITER_THR 0.6
+//Thresholds in dB (double!)
+#define NOISE_THR_dB 			-20
+#define	EXPANDER_HIGH_THR_dB 	-6
+#define COMPRESSOR_LOW_THR_dB 	-4
+#define LIMITER_THR_dB 			-3
 
 //Ratios must be bigger than 1 (double!)
-#define EXPANDER_RATIO 3.0
-#define COMPRESSOR_RATIO 3.0
-
-#define FIX_NOISE_THR 			(doubleToFixed27(NOISE_THR))
-#define FIX_EXPANDER_HIGH_THR 	(doubleToFixed27(EXPANDER_HIGH_THR))
-#define FIX_COMPRESSOR_LOW_THR 	(doubleToFixed27(COMPRESSOR_LOW_THR))
-#define FIX_LIMITER_THR 		(doubleToFixed27(LIMITER_THR))
-#define FIX_EXPANDER_RATIO 		(doubleToFixed27(EXPANDER_RATIO))
-#define FIX_COMPRESSOR_RATIO 	(doubleToFixed27(COMPRESSOR_RATIO))
-
-#define VEC_NOISE_THR 			(int32ToF32x2(FIX_NOISE_THR, FIX_NOISE_THR))
-#define VEC_EXPANDER_HIGH_THR 	(int32ToF32x2(FIX_EXPANDER_HIGH_THR, FIX_EXPANDER_HIGH_THR))
-#define VEC_COMPRESSOR_LOW_THR 	(int32ToF32x2(FIX_COMPRESSOR_LOW_THR, FIX_COMPRESSOR_LOW_THR))
-#define VEC_LIMITER_THR 		(int32ToF32x2(FIX_LIMITER_THR, FIX_LIMITER_THR))
-#define VEC_EXPANDER_RATIO 		(int32ToF32x2(FIX_EXPANDER_RATIO, FIX_EXPANDER_RATIO))
-#define VEC_COMPRESSOR_RATIO 	(int32ToF32x2(FIX_COMPRESSOR_RATIO, FIX_COMPRESSOR_RATIO))
-
-#define EXPANDER_C1 (Sub((VEC_EXPANDER_HIGH_THR), (DivQ27x2((VEC_EXPANDER_HIGH_THR), (VEC_EXPANDER_RATIO)))))
-#define EXPANDER_C2 (DivQ27x2(int32ToF32x2(doubleToFixed27(1), doubleToFixed27(1)), VEC_EXPANDER_RATIO))
-#define COMPRESSOR_C1 (Sub((VEC_COMPRESSOR_LOW_THR), (DivQ27x2((VEC_COMPRESSOR_LOW_THR), (VEC_COMPRESSOR_RATIO)))))
-#define COMPRESSOR_C2 (DivQ27x2(int32ToF32x2(doubleToFixed27(1), doubleToFixed27(1)), VEC_COMPRESSOR_RATIO))
+#define EXPANDER_RATIO 5.0
+#define COMPRESSOR_RATIO 9.0
 
 #define RING_BUFF_SIZE 128
 #define DATA_BUFF_SIZE 1024		//must be twice bigger than RING_BUFF_SIZE
@@ -62,15 +43,30 @@ typedef struct {
 	ae_f32x2 maxSample;
 } RingBuff;
 
+typedef struct {
+	ae_f32x2 noiseThr;
+	ae_f32x2 expanderHighThr;
+	ae_f32x2 compressorLowThr;
+	ae_f32x2 limiterThr;
+	ae_f32x2 expanderRatio;
+	ae_f32x2 compressorRatio;
 
-static inline FILE * openFile(char *fileName, _Bool mode);		//if 0 - read, if 1 - write
-static inline void readHeader(uint8_t *headerBuff, FILE *inputFilePtr);
-static inline void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr);
+	ae_f32x2 expanderC1;
+	ae_f32x2 expanderC2;
+	ae_f32x2 compressorC1;
+	ae_f32x2 compressorC2;
+} Coeffs;
 
+
+ALWAYS_INLINE FILE * openFile(char *fileName, _Bool mode);		//if 0 - read, if 1 - write
+ALWAYS_INLINE void readHeader(uint8_t *headerBuff, FILE *inputFilePtr);
+ALWAYS_INLINE void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr);
+
+ALWAYS_INLINE void calcCoeffs(Coeffs *coeffs);
 ALWAYS_INLINE void updateMaxRingBuffValue(RingBuff *ringBuff);
-ALWAYS_INLINE void ringInitialization(RingBuff *ringBuff, int32_t *samplesBuff);
-NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff);
-void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff);
+ALWAYS_INLINE void initRing(RingBuff *ringBuff, int32_t *samplesBuff);
+NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff, const Coeffs *coeffs);
+static inline void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff, const Coeffs *coeffs);
 
 
 int main()
@@ -79,11 +75,13 @@ int main()
 	FILE *outputFilePtr = openFile(OUTPUT_FILE_NAME, 1);
 	uint8_t headerBuff[FILE_HEADER_SIZE];
 	RingBuff ringBuff;
+	Coeffs coeffs;
 
 	readHeader(headerBuff, inputFilePtr);
 	writeHeader(headerBuff, outputFilePtr);
 
-	run(inputFilePtr, outputFilePtr, &ringBuff);
+	calcCoeffs(&coeffs);
+	run(inputFilePtr, outputFilePtr, &ringBuff, &coeffs);
 	fclose(inputFilePtr);
 	fclose(outputFilePtr);
 
@@ -137,6 +135,31 @@ static inline void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr)
 	}
 }
 
+ALWAYS_INLINE void calcCoeffs(Coeffs *coeffs)
+{
+	int32_t fixNoiseThr = doubleToFixed27(dBtoGain(NOISE_THR_dB));
+	int32_t fixExpanderHighThr = doubleToFixed27(dBtoGain(EXPANDER_HIGH_THR_dB));
+	int32_t fixCompressorLowThr = doubleToFixed27(dBtoGain(COMPRESSOR_LOW_THR_dB));
+	int32_t fixLimiterThr = doubleToFixed27(dBtoGain(LIMITER_THR_dB));
+	int32_t fixExpanderRatio = doubleToFixed27(dBtoGain(EXPANDER_RATIO));
+	int32_t fixCompressorRatio = doubleToFixed27(dBtoGain(COMPRESSOR_RATIO));
+
+	int32_t fixedOne = doubleToFixed27(1);
+	ae_f32x2 vectorOne = int32ToF32x2(fixedOne, fixedOne);
+
+	coeffs->noiseThr = int32ToF32x2(fixNoiseThr, fixNoiseThr);
+	coeffs->expanderHighThr = int32ToF32x2(fixExpanderHighThr, fixExpanderHighThr);
+	coeffs->compressorLowThr = int32ToF32x2(fixCompressorLowThr, fixCompressorLowThr);
+	coeffs->limiterThr = int32ToF32x2(fixLimiterThr, fixLimiterThr);
+	coeffs->expanderRatio = int32ToF32x2(fixExpanderRatio, fixExpanderRatio);
+	coeffs->compressorRatio = int32ToF32x2(fixCompressorRatio, fixCompressorRatio);
+
+	coeffs->expanderC1 = Sub(coeffs->expanderHighThr, DivQ27x2(coeffs->expanderHighThr, coeffs->expanderRatio));
+	coeffs->expanderC2 = DivQ27x2(vectorOne, coeffs->expanderRatio);
+	coeffs->compressorC1 = Sub(coeffs->compressorLowThr, DivQ27x2(coeffs->compressorLowThr, coeffs->compressorRatio));
+	coeffs->compressorC2 = DivQ27x2(vectorOne, coeffs->compressorRatio);
+}
+
 ALWAYS_INLINE void updateMaxRingBuffValue(RingBuff *ringBuff)
 {
 	uint16_t i;
@@ -147,7 +170,7 @@ ALWAYS_INLINE void updateMaxRingBuffValue(RingBuff *ringBuff)
 	}
 }
 
-ALWAYS_INLINE void ringInitialization(RingBuff *ringBuff, int32_t *dataBuff)
+ALWAYS_INLINE void initRing(RingBuff *ringBuff, int32_t *dataBuff)
 {
 	uint16_t i;
 	ringBuff->currNum = 0;
@@ -163,7 +186,7 @@ ALWAYS_INLINE void ringInitialization(RingBuff *ringBuff, int32_t *dataBuff)
 	updateMaxRingBuffValue(ringBuff);
 }
 
-NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
+NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff, const Coeffs *coeffs)
 {
 	ae_f32x2 gain = AE_MOVF32X2_FROMINT32X2(AE_MOVDA32X2(0x07ffffff, 0x07ffffff));
 	ae_f32x2 limGain;
@@ -177,13 +200,13 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 
 
 	//=== if NoiseGate ===
-	isNoiseGate = AE_LT32(maxSample27, VEC_NOISE_THR);
+	isNoiseGate = AE_LT32(maxSample27, coeffs->noiseThr);
 	AE_MOVT32X2(gain, 0, isNoiseGate);		//if isNoiseGate, gain = 0
 	isCalculated = isNoiseGate;
 
 
 	//=== if Limiter ===
-	isLimiter = AE_LT32(VEC_LIMITER_THR, maxSample27);
+	isLimiter = AE_LT32(coeffs->limiterThr, maxSample27);
 	isLimiter = xtbool_join_xtbool2(
 									XT_ANDB(
 											xtbool2_extract_0(isLimiter),
@@ -195,11 +218,11 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 											)
 									);
 
-	AE_MOVT32X2(limGain, DivQ27x2(VEC_LIMITER_THR, maxSample27), isLimiter);
+	AE_MOVT32X2(limGain, DivQ27x2(coeffs->limiterThr, maxSample27), isLimiter);
 
 
 	//=== if Expander ===
-	isExpander = AE_LT32(maxSample27, VEC_EXPANDER_HIGH_THR);
+	isExpander = AE_LT32(maxSample27, coeffs->expanderHighThr);
 	isExpander = xtbool_join_xtbool2(
 									XT_ANDB(
 											xtbool2_extract_0(isExpander),
@@ -223,13 +246,13 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 
 	AE_MOVT32X2(
 				gain,
-				Add(DivQ27x2(EXPANDER_C1, maxSample27), EXPANDER_C2),
+				Add(DivQ27x2(coeffs->expanderC1, maxSample27), coeffs->expanderC2),
 				isExpander
 				);
 
 
 	//=== if Compressor ===
-	isCompressor = AE_LE32(VEC_COMPRESSOR_LOW_THR, maxSample27);
+	isCompressor = AE_LE32(coeffs->compressorLowThr, maxSample27);
 
 	isCompressor = xtbool_join_xtbool2(
 									XT_ANDB(
@@ -254,7 +277,7 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 
 	AE_MOVT32X2(
 				gain,
-				Add(DivQ27x2(COMPRESSOR_C1, maxSample27), COMPRESSOR_C2),
+				Add(DivQ27x2(coeffs->compressorC1, maxSample27), coeffs->compressorC2),
 				isCompressor
 				);
 
@@ -265,7 +288,7 @@ NEVER_INLINE ae_f32x2 signalProc(RingBuff *ringBuff)
 	return Q27ToQ31x2(MulQ27x2(Q31ToQ27x2(ringBuff->samples[ringBuff->currNum]), gain));
 }
 
-void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff)
+void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff, const Coeffs *coeffs)
 {
 	int32_t dataBuff[DATA_BUFF_SIZE * CHANNELS];
 	size_t samplesRead;
@@ -284,7 +307,7 @@ void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff)
 
 		if (isFirstIteration)
 		{
-			ringInitialization(ringBuff, dataBuff);
+			initRing(ringBuff, dataBuff);
 			i = RING_BUFF_SIZE;
 			isFirstIteration = 0;
 		}
@@ -295,7 +318,7 @@ void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBuff)
 
 		for (i; i < samplesRead / CHANNELS; i++)
 		{
-			res = signalProc(ringBuff);
+			res = signalProc(ringBuff, coeffs);
 			ringBuff->samples[ringBuff->currNum] =
 								AE_MOVDA32X2(dataBuff[i * CHANNELS], dataBuff[i * CHANNELS + 1]);
 			dataBuff[i * CHANNELS] = AE_MOVAD32_H(res);
