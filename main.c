@@ -26,15 +26,15 @@
 #define LIMITER_THR_dB 			-3
 
 //Ratios must be bigger than 1 (double!)
-#define EXPANDER_RATIO 5.0
-#define COMPRESSOR_RATIO 9.0
+#define EXPANDER_RATIO 		5.0
+#define COMPRESSOR_RATIO 	9.0
 
-#define RING_BUFF_SIZE 128
-#define DATA_BUFF_SIZE 1024		//must be twice bigger than RING_BUFF_SIZE
+#define RING_BUFF_SIZE 		128
+#define DATA_BUFF_SIZE 		1024		//must be twice bigger than RING_BUFF_SIZE
 
-#define DIV_PRECISION 5			//be careful with too small values
+#define DIV_PRECISION 		5			//be careful with too small values
 
-#define PI 3.14159265358979323846
+#define PI 					3.14159265358979323846
 
 
 typedef struct {
