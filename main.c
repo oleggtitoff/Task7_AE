@@ -30,9 +30,9 @@
 #define COMPRESSOR_RATIO 	9.0
 
 #define RING_BUFF_SIZE 		128
-#define DATA_BUFF_SIZE 		1024		//must be twice bigger than RING_BUFF_SIZE
+#define DATA_BUFF_SIZE 		1024	//must be twice bigger than RING_BUFF_SIZE
 
-#define DIV_PRECISION 		5			//be careful with too small values
+#define DIV_PRECISION 		5		//be careful with too small values
 
 #define PI 					3.14159265358979323846
 
