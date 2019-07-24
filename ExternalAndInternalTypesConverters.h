@@ -9,11 +9,14 @@
 #define EXTERNAL_AND_INTERNAL_TYPES_CONVERTERS
 
 #include "InternalTypesDefinitions.h"
+#include "InternalTypesConverters.h"
+
+#include <stdint.h>
 
 //
 // EXTERNAL/INTERNAL TYPES CONVERTERS
 //
-ALWAYS_INLINE I32 doubleToI32(double x)
+ALWAYS_INLINE I32 doubleToI32(const double x)
 {
 	// converts double in range -1 1 to I32x1 Q31 representation
 	if (x >= 1)
@@ -28,9 +31,14 @@ ALWAYS_INLINE I32 doubleToI32(double x)
 	return (int32_t)(x * (double)(1LL << 31));
 }
 
-ALWAYS_INLINE F32x2 doubleToF32x2(double x)
+ALWAYS_INLINE F32x2 doubleToF32x2Set(const double x)
 {
-	return I32x2ToF32x2(I32x2Set(doubleToI32(x)));
+	return F32x2Set(doubleToI32(x));
+}
+
+ALWAYS_INLINE F32x2 doubleToF32x2Join(const double x, const double y)
+{
+	return F32x2Join(doubleToI32(x), doubleToI32(y));
 }
 
 #endif /* EXTERNAL_AND_INTERNAL_TYPES_CONVERTERS */

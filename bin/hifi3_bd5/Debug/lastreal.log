@@ -1,31 +1,31 @@
-**** Incremental Build [Tue, 23 Jul 2019 16:46:41] ****
+**** Incremental Build [Wed, 24 Jul 2019 19:37:37] ****
  Project: Task7_AE
  Configuration: hifi3_bd5
  Build Target: Debug
 ********************************
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-xcc" -c -g -O0 -fmessage-length=0 -I "\"C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE\"" -DPROC_hifi3_bd5 -DCONFIG_hifi3_bd5 --xtensa-system=C:/usr/xtensa/XtDevTools/install/builds/RI-2019.1-win32/hifi3_bd5/config --xtensa-core=hifi3_bd5 --xtensa-params= "\"C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/main.c\"" -o "\"C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/main.o\"" 
-Time taken: 1723 ms 
+Time taken: 1813 ms 
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-xc++" -Wl,@C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/objfiles.list -o C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE.minsize -mlsp=sim -Wl,-r -nostdlib --xtensa-system=C:/usr/xtensa/XtDevTools/install/builds/RI-2019.1-win32/hifi3_bd5/config --xtensa-core=hifi3_bd5 --xtensa-params= 
-Time taken: 346 ms 
+Time taken: 437 ms 
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-xc++" -Wl,@C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/objfiles.list -o C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE -mlsp=sim --xtensa-system=C:/usr/xtensa/XtDevTools/install/builds/RI-2019.1-win32/hifi3_bd5/config --xtensa-core=hifi3_bd5 --xtensa-params= 
-Time taken: 570 ms 
+Time taken: 484 ms 
 
 ******* Code size summary *****
 
 "C:\\usr\\xtensa\\XtDevTools\\install\\tools\\RI-2019.1-win32\\XtensaTools\\bin\\xt-size" -C C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE 
 TYPE   	   text	 rodata	   data	    bss	    dec    hex	filename
-code   	  43883	      0	      0	      0	  43883	   ab6b	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
-literal	    852	      0	      0	      0	    852	    354	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
-other  	    985	   2072	    904	   1144	   5105	   13f1	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
-Total  	  45720	   2072	    904	   1144	  49840	   c2b0	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
+code   	   1460	      0	      0	      0	   1460	    5b4	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
+literal	    184	      0	      0	      0	    184	     b8	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
+other  	    196	     32	    420	    296	    944	    3b0	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
+Total  	   1840	     32	    420	    296	   2588	    a1c	C:/usr/xtensa/Xplorer-8.0.10-workspaces/workspace/Task7_AE/bin/hifi3_bd5/Debug/Task7_AE
 
-Time taken: 203 ms 
+Time taken: 296 ms 
 
 ******* ************** *****
 
 Build successful !!
-Total time taken: 3.047 secs
-**** Build Finished [Tue, 23 Jul 2019 16:46:44] ****
+Total time taken: 3.203 secs
+**** Build Finished [Wed, 24 Jul 2019 19:37:40] ****

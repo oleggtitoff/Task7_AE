@@ -13,72 +13,72 @@
 //
 // INTERNAL TYPES CONVERTERS
 //
-ALWAYS_INLINE xtbool Boolx2Extract_h(Boolx2 x)
+ALWAYS_INLINE xtbool Boolx2Extract_h(const Boolx2 x)
 {
 	return xtbool2_extract_1(x);
 }
 
-ALWAYS_INLINE Bool Boolx2Extract_l(Boolx2 x)
+ALWAYS_INLINE Bool Boolx2Extract_l(const Boolx2 x)
 {
 	return xtbool2_extract_0(x);
 }
 
-ALWAYS_INLINE Boolx2 Boolx2Set(Bool x)
+ALWAYS_INLINE Boolx2 Boolx2Set(const Bool x)
 {
 	return xtbool_join_xtbool2(x, x);
 }
 
-ALWAYS_INLINE Boolx2 Boolx2Join(Bool h, Bool l)
+ALWAYS_INLINE Boolx2 Boolx2Join(const Bool h, const Bool l)
 {
 	return xtbool_join_xtbool2(h, l);
 }
 
-ALWAYS_INLINE I32 I32x2Extract_h(F32x2 x)
-{
-	return AE_MOVAD32_H(F32x2ToI32x2);
-}
-
-ALWAYS_INLINE I32 I32x2Extract_l(F32x2 x)
-{
-	return AE_MOVAD32_L(F32x2ToI32x2);
-}
-
-ALWAYS_INLINE I32x2 I32x2Set(I32 x)
+ALWAYS_INLINE I32x2 I32x2Set(const I32 x)
 {
 	return AE_MOVDA32X2(x, x);
 }
 
-ALWAYS_INLINE I32x2 I32x2Join(I32 h, I32 l)
+ALWAYS_INLINE I32x2 I32x2Join(const I32 h, const I32 l)
 {
 	return AE_MOVDA32X2(h, l);
 }
 
-ALWAYS_INLINE I32x2 F32x2ToI32x2(F32x2 x)
+ALWAYS_INLINE I32x2 F32x2ToI32x2(const F32x2 x)
 {
-	AE_MOVINT32X2_FROMF32X2(x);
+	return AE_MOVINT32X2_FROMF32X2(x);
 }
 
-ALWAYS_INLINE F32x2 F32x2Set(I32 x)
+ALWAYS_INLINE I32 I32x2Extract_h(const F32x2 x)
 {
-	return I32x2ToF32x2(I32x2Set(x));
+	return AE_MOVAD32_H(F32x2ToI32x2(x));
 }
 
-ALWAYS_INLINE F32x2 F32x2Join(I32 h, I32 l)
+ALWAYS_INLINE I32 I32x2Extract_l(const F32x2 x)
 {
-	return I32x2ToF32x2(I32x2Join(h, l));
+	return AE_MOVAD32_L(F32x2ToI32x2(x));
 }
 
-ALWAYS_INLINE F32x2 I32x2ToF32x2(I32x2 x)
+ALWAYS_INLINE F32x2 I32x2ToF32x2(const I32x2 x)
 {
 	return AE_MOVF32X2_FROMINT32X2(x);
 }
 
-ALWAYS_INLINE F32x2 F64x2ToF32x2Round(F64x2 x)
+ALWAYS_INLINE F32x2 F32x2Set(const I32 x)
+{
+	return I32x2ToF32x2(I32x2Set(x));
+}
+
+ALWAYS_INLINE F32x2 F32x2Join(const I32 h, const I32 l)
+{
+	return I32x2ToF32x2(I32x2Join(h, l));
+}
+
+ALWAYS_INLINE F32x2 F64x2ToF32x2Round(const F64x2 x)
 {
 	return AE_ROUND32X2F64SSYM(x.h, x.l);
 }
 
-ALWAYS_INLINE F64x2 F64x2Set(F64 x)
+ALWAYS_INLINE F64x2 F64x2Set(const F64 x)
 {
 	F64x2 res;
 	res.h = x;
@@ -86,7 +86,7 @@ ALWAYS_INLINE F64x2 F64x2Set(F64 x)
 	return res;
 }
 
-ALWAYS_INLINE F64x2 F64x2Join(F64 h, F64 l)
+ALWAYS_INLINE F64x2 F64x2Join(const F64 h, const F64 l)
 {
 	F64x2 res;
 	res.h = h;

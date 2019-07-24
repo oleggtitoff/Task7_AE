@@ -10,10 +10,12 @@
 
 #include "InternalTypesDefinitions.h"
 
+#include <math.h>
+
 //
 // GENERAL ARITHMETIC
 //
-ALWAYS_INLINE double dBtoGain(double dB)
+ALWAYS_INLINE double dBtoGain(const double dB)
 {
 	return pow(10, dB / 20.0);
 }
