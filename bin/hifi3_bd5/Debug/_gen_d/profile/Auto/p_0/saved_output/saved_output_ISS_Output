@@ -1,0 +1,20 @@
+C:\usr\xtensa\XtDevTools\install\tools\RI-2019.1-win32\XtensaTools\bin\xt-run --xtensa-core=hifi3_bd5 --xtensa-system=C:\usr\xtensa\XtDevTools\install\builds\RI-2019.1-win32\hifi3_bd5\config --xtensa-params= --console --turbo --summary --client=C:\usr\xtensa\Xplorer-8.0.10-workspaces\workspace\Task7_AE\bin\hifi3_bd5\Debug\_gen_d\profile\Auto\p_0\iss.clientcmds C:\usr\xtensa\Xplorer-8.0.10-workspaces\workspace\Task7_AE\bin\hifi3_bd5\Debug\Task7_AE
+x = -0.250000
+y = -0.428571
+
+Xtensa Core: "hifi3_bd5"  TurboXim Version: 14.01
+
+Time for Simulation = 0.22 seconds  (+ 0.49 seconds for Initialization)
+
+Current PC = 0x60005d3f
+
+Events                           Number  Number
+                                         per 100
+                                         instrs 
+
+Committed instructions           61881 ( 100.00 )
+Taken branches                    5629 (   9.10 )
+Exceptions                         303 (   0.49 )
+   WindowOverflow                  152 (   0.25 )
+   WindowUnderflow                 151 (   0.24 )
+

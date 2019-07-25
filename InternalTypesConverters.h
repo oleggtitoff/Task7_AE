@@ -48,12 +48,12 @@ ALWAYS_INLINE I32x2 F32x2ToI32x2(const F32x2 x)
 	return AE_MOVINT32X2_FROMF32X2(x);
 }
 
-ALWAYS_INLINE I32 I32x2Extract_h(const F32x2 x)
+ALWAYS_INLINE I32 F32x2ToI32Extract_h(const F32x2 x)
 {
 	return AE_MOVAD32_H(F32x2ToI32x2(x));
 }
 
-ALWAYS_INLINE I32 I32x2Extract_l(const F32x2 x)
+ALWAYS_INLINE I32 F32x2ToI32Extract_l(const F32x2 x)
 {
 	return AE_MOVAD32_L(F32x2ToI32x2(x));
 }

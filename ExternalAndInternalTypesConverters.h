@@ -41,4 +41,19 @@ ALWAYS_INLINE F32x2 doubleToF32x2Join(const double x, const double y)
 	return F32x2Join(doubleToI32(x), doubleToI32(y));
 }
 
+ALWAYS_INLINE double I32ToDouble(I32 x)
+{
+	return (double)((int32_t)x / (double)(1LL << 31));
+}
+
+ALWAYS_INLINE double F32x2ToDoubleExtract_h(F32x2 x)
+{
+	return I32ToDouble(F32x2ToI32Extract_h(x));
+}
+
+ALWAYS_INLINE double F32x2ToDoubleExtract_l(F32x2 x)
+{
+	return I32ToDouble(F32x2ToI32Extract_l(x));
+}
+
 #endif /* EXTERNAL_AND_INTERNAL_TYPES_CONVERTERS */
