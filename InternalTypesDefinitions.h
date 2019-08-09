@@ -19,6 +19,12 @@
 //
 // INTERNAL TYPES DEFINITIONS
 //
+//Status	: status flag
+typedef enum {
+	statusOK = 0,
+	statusError
+} Status;
+
 // Boolx1	: scalar boolean
 typedef xtbool Bool;
 

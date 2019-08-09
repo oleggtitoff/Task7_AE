@@ -9,9 +9,12 @@
 #define INTERNAL_TYPES_ARITHMETIC
 
 #include "InternalTypesDefinitions.h"
+#include "InternalTypesConverters.h"
 #include "PredicatesOperations.h"
+#include "Tables.h"
 
 #define DIV_PRECISION 5		//be careful with too small values
+
 
 //
 // INTERNAL TYPES LOGICAL OPERATIONS
@@ -67,6 +70,13 @@ ALWAYS_INLINE F32x2 F32x2LeftShiftAS(const F32x2 x, const uint8_t shift)
 	return AE_SLAA32S(x, shift);
 }
 
+ALWAYS_INLINE F32x2 F32x2LeftShiftAS_Apart(const F32x2 x, const uint8_t shiftH, const uint8_t shiftL)
+{
+	return AE_SEL32_LL(
+						F32x2LeftShiftAS(AE_SEL32_HH(x, x), shiftH),
+						F32x2LeftShiftAS(AE_SEL32_LL(x, x), shiftL));
+}
+
 ALWAYS_INLINE F64x2 F64x2LeftShiftAS(F64x2 x, const uint8_t shift)
 {
 	x.h = F64LeftShiftAS(x.h, shift);
@@ -87,6 +97,13 @@ ALWAYS_INLINE F64 F64RightShiftL(const F64 x, const uint8_t shift)
 ALWAYS_INLINE F32x2 F32x2RightShiftA(const F32x2 x, const uint8_t shift)
 {
 	return AE_SRAA32S(x, shift);
+}
+
+ALWAYS_INLINE F32x2 F32x2RightShiftA_Apart(const F32x2 x, const uint8_t shiftH, const uint8_t shiftL)
+{
+	return AE_SEL32_LL(
+						F32x2RightShiftA(AE_SEL32_HH(x, x), shiftH),
+						F32x2RightShiftA(AE_SEL32_LL(x, x), shiftL));
 }
 
 ALWAYS_INLINE F64x2 F64x2RightShiftA(F64x2 x, const uint8_t shift)
@@ -149,73 +166,158 @@ ALWAYS_INLINE F32x2 F32x2Div(F32x2 x, F32x2 y)
 	return x;
 }
 
-F32x2 F32x2DivExp(F32x2 x, F32x2 y, int8_t *exp)
+ALWAYS_INLINE F32x2 F32x2BuiltInDiv(F32x2 x, F32x2 y)
 {
-	int8_t expX = AE_NSAZ32_L(x);
-
-	//TODO
+	return F32x2Join(
+					(int32_t)F32x2ToI32Extract_h(x) / (int32_t)F32x2ToI32Extract_h(y),
+					(int32_t)F32x2ToI32Extract_l(x) / (int32_t)F32x2ToI32Extract_l(y));
 }
 
-F32x2 F32x2DivBinarySearch_Slow(F32x2 x, F32x2 y, const int8_t Q)
+ALWAYS_INLINE F32x2 F32x2Log2(F32x2 x)
 {
-	F32x2 maxValue = F32x2Set(INT32_MAX);
-	F32x2 precision = F32x2Set(DIV_PRECISION << (31 - Q));
+	// Input/Output in Q27
 
-	F32x2 low = F32x2Zero();				//low boundary
-	F32x2 high = maxValue;					//high boundary
-	F32x2 mid;								//middle value
-	F32x2 midY;								//mid * y
-
-	Boolx2 resultIsNegative = F32x2LessThan(F32x2XOR(x, y), F32x2Zero());
-	Boolx2 precisionAchieved;
-
-	//flags for mid value:
-	Boolx2 isLimitValue;
-	Boolx2 ifLessThanX;
-	Boolx2 ifBiggerThanX;
-
-	Boolx2 xIs0 = F32x2Equal(x, F32x2Zero());			//if x == 0
-	Boolx2 yIs0 = F32x2Equal(y, F32x2Zero());			//if y == 0
-
-	Boolx2 isCalculated = Boolx2OR(yIs0, xIs0);
-
-	F32x2MovIfTrue(&mid, low, xIs0);			//if x == 0, mid = 0
-	F32x2MovIfTrue(&mid, high, yIs0);		//if y == 0, mid = MAX
-
-	if ((int8_t)isCalculated == 3)
-	{
-		return mid;
-	}
+	F32x2 index = 0;
+	F32x2 res = F32x2Zero();
+	Boolx2 isZero = F32x2Equal(x, F32x2Zero());
+	Boolx2 isCalculated = isZero;
+	F32x2MovIfTrue(&res, F32x2Set(INT32_MIN), isZero);
 
 	x = F32x2Abs(x);
-	y = F32x2Abs(y);
 
-	while (1)
-	{
-		F32x2MovIfTrue(	&mid,
-						F32x2Add(low, F32x2RightShiftA(F32x2Sub(high, low), 1)),
-						Boolx2NOT(isCalculated));
+	int8_t clsH = AE_NSAZ32_L(AE_SEL32_LH(x, x));
+	int8_t clsL = AE_NSAZ32_L(x);
+	F32x2 cls = F32x2Join(clsH, clsL);
+	Boolx2 isBigger = Boolx2AND(F32x2LessThan(cls, F32x2Set(4)), Boolx2NOT(isCalculated));
+	Boolx2 isSmaller = Boolx2AND(F32x2LessThan(F32x2Set(4), cls), Boolx2NOT(isCalculated));
 
-		midY = F32x2LeftShiftAS(F32x2Mul(mid, y), 31 - Q);		//mid * y
+	F32x2MovIfTrue(&x, F32x2RightShiftA_Apart(x, 4 - clsH, 4 - clsL), isBigger);
+	F32x2MovIfTrue(&res, F32x2LeftShiftAS(F32x2Sub(F32x2Set(4), cls), 27), isBigger);
 
-		precisionAchieved = F32x2LessEqual(F32x2Abs(F32x2Sub(midY, x)), precision);
-		isLimitValue = F32x2LessEqual(F32x2Sub(maxValue, F32x2Abs(mid)), precision);
+	F32x2MovIfTrue(&x, F32x2LeftShiftAS_Apart(x, clsH - 4, clsL - 4), isSmaller);
+	F32x2MovIfTrue(&res, F32x2LeftShiftAS(F32x2Sub(F32x2Zero(), F32x2Sub(cls, F32x2Set(4))), 27), isSmaller);
 
-		isCalculated = Boolx2OR(isCalculated, Boolx2OR(precisionAchieved, isLimitValue));
+	// Here 0x4000000 is min (first) value in log2InputsTable and 0x81020 is the step between values
+	index = F32x2BuiltInDiv(F32x2Sub(x, F32x2Set(0x4000000)), F32x2Set(0x81020));
 
-		if ((int8_t)isCalculated == 3)
-		{
-			F32x2MovIfTrue(&mid, F32x2Sub(F32x2Zero(), mid), resultIsNegative);
-			return mid;
-		}
-
-		ifLessThanX = F32x2LessThan(midY, x);
-		ifBiggerThanX = F32x2LessEqual(x, midY);
-
-		F32x2MovIfTrue(&low, mid, ifLessThanX);
-		F32x2MovIfTrue(&high, mid, ifBiggerThanX);
-	}
+	return F32x2Add(res, F32x2Join(
+									log2OutputsTable[(int)F32x2ToI32Extract_h(index)],
+									log2OutputsTable[(int)F32x2ToI32Extract_l(index)]));
 }
+
+ALWAYS_INLINE F32x2 F32x2PowOf2(F32x2 x)
+{
+	// Input/Output in Q27
+
+	F32x2 index = 0;
+	F32x2 res = 0x8000000;
+	F32x2 mask = F32x2Set(0x78000000);
+	Boolx2 isNegative = F32x2LessThan(x, F32x2Zero());
+	F32x2 count = F32x2AND(F32x2Abs(x), mask);
+	F32x2 countShifted = F32x2RightShiftA(count, 27);
+
+	F32x2MovIfTrue(&x, F32x2Sub(x, count), Boolx2NOT(isNegative));
+	F32x2MovIfTrue(&res,
+			F32x2LeftShiftAS_Apart(res, (int)F32x2ToI32Extract_h(countShifted), (int)F32x2ToI32Extract_l(countShifted)),
+			Boolx2NOT(isNegative));
+
+	F32x2MovIfTrue(&x, F32x2Add(x, count), isNegative);
+	F32x2MovIfTrue(&res,
+			F32x2RightShiftA_Apart(res, (int)F32x2ToI32Extract_h(countShifted), (int)F32x2ToI32Extract_l(countShifted)),
+			isNegative);
+
+
+	index = F32x2BuiltInDiv(x, F32x2Set(0x102040));
+	F32x2MovIfTrue(&index, F32x2Add(F32x2Abs(index), F32x2Set(127)), F32x2LessThan(index, F32x2Zero()));
+
+	return F32x2LeftShiftAS(F32x2Mul(res, F32x2Join(
+										powOf2OutputsTable[(int)F32x2ToI32Extract_h(index)],
+										powOf2OutputsTable[(int)F32x2ToI32Extract_l(index)])), 4);
+}
+
+ALWAYS_INLINE F32x2 F32x2Pow(F32x2 x, F32x2 y)
+{
+	// Input/Output in Q27
+
+	return F32x2PowOf2(F32x2LeftShiftAS(F32x2Mul(y, F32x2Log2(x)), 4));
+}
+
+//F32x2 F32x2DivExp(F32x2 x, F32x2 y, int8_t *expH, int8_t *expL)
+//{
+//	int8_t expX_H = AE_NSAZ32_L(AE_SEL32_LH(x, x));
+//	int8_t expX_L = AE_NSAZ32_L(x);
+//	int8_t expY_H = AE_NSAZ32_L(AE_SEL32_LH(y, y));
+//	int8_t expY_L = AE_NSAZ32_L(y);
+//
+//	x = F32x2LeftShiftAS_Apart(x, expX_H - 1, expX_L - 1);
+//	y = F32x2LeftShiftAS_Apart(y, expY_H, expY_L);
+//
+//	*expH = expX_H - expY_H - 1;
+//	*expL = expX_L - expY_L - 1;
+//
+//	return F32x2Div(x, y);
+//}
+//
+//F32x2 F32x2DivBinarySearch_Slow(F32x2 x, F32x2 y, const int8_t Q)
+//{
+//	F32x2 maxValue = F32x2Set(INT32_MAX);
+//	F32x2 precision = F32x2Set(DIV_PRECISION << (31 - Q));
+//
+//	F32x2 low = F32x2Zero();				//low boundary
+//	F32x2 high = maxValue;					//high boundary
+//	F32x2 mid;								//middle value
+//	F32x2 midY;								//mid * y
+//
+//	Boolx2 resultIsNegative = F32x2LessThan(F32x2XOR(x, y), F32x2Zero());
+//	Boolx2 precisionAchieved;
+//
+//	//flags for mid value:
+//	Boolx2 isLimitValue;
+//	Boolx2 ifLessThanX;
+//	Boolx2 ifBiggerThanX;
+//
+//	Boolx2 xIs0 = F32x2Equal(x, F32x2Zero());			//if x == 0
+//	Boolx2 yIs0 = F32x2Equal(y, F32x2Zero());			//if y == 0
+//
+//	Boolx2 isCalculated = Boolx2OR(yIs0, xIs0);
+//
+//	F32x2MovIfTrue(&mid, low, xIs0);			//if x == 0, mid = 0
+//	F32x2MovIfTrue(&mid, high, yIs0);		//if y == 0, mid = MAX
+//
+//	if ((int8_t)isCalculated == 3)
+//	{
+//		return mid;
+//	}
+//
+//	x = F32x2Abs(x);
+//	y = F32x2Abs(y);
+//
+//	while (1)
+//	{
+//		F32x2MovIfTrue(	&mid,
+//						F32x2Add(low, F32x2RightShiftA(F32x2Sub(high, low), 1)),
+//						Boolx2NOT(isCalculated));
+//
+//		midY = F32x2LeftShiftAS(F32x2Mul(mid, y), 31 - Q);		//mid * y
+//
+//		precisionAchieved = F32x2LessEqual(F32x2Abs(F32x2Sub(midY, x)), precision);
+//		isLimitValue = F32x2LessEqual(F32x2Sub(maxValue, F32x2Abs(mid)), precision);
+//
+//		isCalculated = Boolx2OR(isCalculated, Boolx2OR(precisionAchieved, isLimitValue));
+//
+//		if ((int8_t)isCalculated == 3)
+//		{
+//			F32x2MovIfTrue(&mid, F32x2Sub(F32x2Zero(), mid), resultIsNegative);
+//			return mid;
+//		}
+//
+//		ifLessThanX = F32x2LessThan(midY, x);
+//		ifBiggerThanX = F32x2LessEqual(x, midY);
+//
+//		F32x2MovIfTrue(&low, mid, ifLessThanX);
+//		F32x2MovIfTrue(&high, mid, ifBiggerThanX);
+//	}
+//}
 
 ALWAYS_INLINE F64x2 F32x2MulF64x2(const F32x2 x, const F32x2 y)
 {
