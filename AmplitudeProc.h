@@ -15,29 +15,31 @@
 #define RING_BUFF_SIZE 		128
 #define DATA_BUFF_SIZE 		1024	//must be twice bigger than RING_BUFF_SIZE#define CHANNELS 2
 
+
 typedef enum {
-	sampleRateID = 1,
+	sampleRateID 			= 1,
 
-	noiseGateIsActiveID = 2,
-	expanderIsActiveID = 3,
-	compressorIsActiveID = 4,
-	limiterIsActiveID = 5,
+	noiseGateIsActiveID 	= 2,
+	expanderIsActiveID 		= 3,
+	compressorIsActiveID 	= 4,
+	limiterIsActiveID 		= 5,
 
-	noiseThrID = 6,
-	expanderHighThrID = 7,
-	compressorLowThrID = 8,
-	limiterThrID = 9,
+	noiseThrID 				= 6,
+	expanderHighThrID 		= 7,
+	compressorLowThrID 		= 8,
+	limiterThrID 			= 9,
 
-	expanderRatioID = 10,
-	compressorRatioID = 11,
+	expanderRatioID 		= 10,
+	compressorRatioID 		= 11,
 
-	envelopeAttackTimeID = 12,
-	envelopeReleaseTimeID = 13,
-	expanderAttackTimeID = 14,
-	expanderReleaseTimeID = 15,
-	compressorAttackTimeID = 16,
+	envelopeAttackTimeID 	= 12,
+	envelopeReleaseTimeID 	= 13,
+	expanderAttackTimeID 	= 14,
+	expanderReleaseTimeID 	= 15,
+	compressorAttackTimeID 	= 16,
 	compressorReleaseTimeID = 17
 } paramID;
+
 
 typedef struct {
 	uint16_t currNum;
@@ -119,8 +121,8 @@ typedef struct {
 	ExpanderStates expander;
 } States;
 
-Status AmplitudeProcInit(Params *params, Coeffs *coeffs, RingBuff *ringBuff,
-						 States *states, const int sampleRate);
+
+Status AmplitudeProcInit(Params *params, Coeffs *coeffs, RingBuff *ringBuff, States *states);
 Status AmplitudeProcSetParam(Params *params, Coeffs *coeffs, States *states,
 							 const uint16_t id, double value);
 Status ringBuffSet(RingBuff *ringBuff, int32_t *dataBuff);

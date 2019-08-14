@@ -7,14 +7,14 @@
 
 #include "AmplitudeProc.h"
 
-ALWAYS_INLINE Status paramsInit(Params *params, const int sampleRate)
+ALWAYS_INLINE Status paramsInit(Params *params)
 {
 	// initializes parameters into initial state
 
 	if (!params)
 		return statusError;
 
-	params->sampleRate 				= sampleRate;
+	params->sampleRate 				= 0;
 
 	params->noiseGateIsActive 		= 0;
 	params->expanderIsActive 		= 0;
@@ -281,14 +281,13 @@ ALWAYS_INLINE F32x2 limiter(const LimiterCoeffs *coeffs, RingBuff *ringBuff, con
 }
 
 
-Status AmplitudeProcInit(Params *params, Coeffs *coeffs, RingBuff *ringBuff,
-						 States *states, const int sampleRate)
+Status AmplitudeProcInit(Params *params, Coeffs *coeffs, RingBuff *ringBuff, States *states)
 {
 	// initializes parameters, coefficients and buffers into well-defined initial state
 
 	Status status = 0;
 
-	status |= paramsInit(params, sampleRate);
+	status |= paramsInit(params);
 	status |= coeffsInit(coeffs);
 	status |= ringBuffInit(ringBuff);
 	status |= statesInit(states);

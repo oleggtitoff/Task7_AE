@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define INPUT_FILE_NAME "EnvelopeTestSound.wav"
+#define INPUT_FILE_NAME "DiffAmplitudeTest.wav"
 #define OUTPUT_FILE_NAME "Output.wav"
 #define FILE_HEADER_SIZE 44
 #define BYTES_PER_SAMPLE 4
@@ -85,7 +85,7 @@ int main()
 	readHeader(headerBuff, inputFilePtr);
 	writeHeader(headerBuff, outputFilePtr);
 
-	AmplitudeProcInit(&params, &coeffs, &ringBuff, &states, SAMPLE_RATE);
+	AmplitudeProcInit(&params, &coeffs, &ringBuff, &states);
 	setParams(&params, &coeffs, &states);
 
 	run(inputFilePtr, outputFilePtr, &ringBuff, &coeffs, &states);
@@ -144,6 +144,8 @@ static inline void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr)
 
 void setParams(Params *params, Coeffs *coeffs, States *states)
 {
+	AmplitudeProcSetParam(params, coeffs, states, sampleRateID, SAMPLE_RATE);
+
 	AmplitudeProcSetParam(params, coeffs, states, noiseGateIsActiveID, NOISE_GATE_IS_ACTIVE);
 	AmplitudeProcSetParam(params, coeffs, states, expanderIsActiveID, EXPANDER_IS_ACTIVE);
 	AmplitudeProcSetParam(params, coeffs, states, compressorIsActiveID, COMPRESSOR_IS_ACTIVE);

@@ -1,6 +1,6 @@
 
 
-Program Arguments : None
+Program Arguments : -c Config.txt -i EnvelopeTestSound.wav -o Output.wav
 
 Cache Configuration Options...
 Performance Modelling : Disabled

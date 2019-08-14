@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <chartData>
 <totals>
-<data category="profile" name="Application Size" value="2710.0">
-<subData name="Text Size" value="1126.0"/>
-<subData name="Read-Only Data Size" value="1532.0"/>
+<data category="profile" name="Application Size" value="8472.0">
+<subData name="Text Size" value="6484.0"/>
+<subData name="Read-Only Data Size" value="1792.0"/>
 <subData name="Initialized Data Size" value="0.0"/>
 <subData name="Uninitialized Data Size" value="0.0"/>
-<subData name="Literals Size" value="52.0"/>
+<subData name="Literals Size" value="196.0"/>
 </data>
-<data category="profile" name="Instructions" value="1785.0"/>
+<data category="profile" name="Instructions" value="5.1359267E7"/>
 </totals>
 <additionalInfo/>
 </chartData>
