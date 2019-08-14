@@ -144,11 +144,11 @@ ALWAYS_INLINE void updateMaxRingBuffValue(RingBuff *ringBuff)
 	// calculates and updates maxSample value in ring buffer
 
 	uint16_t i;
-	ringBuff->maxSample = ringBuff->samples[0];
+	ringBuff->maxSample = F32x2Abs(ringBuff->samples[0]);
 
 	for (i = 1; i < RING_BUFF_SIZE; i++)
 	{
-		ringBuff->maxSample = F32x2Max(ringBuff->maxSample, ringBuff->samples[i]);
+		ringBuff->maxSample = F32x2Max(ringBuff->maxSample, F32x2Abs(ringBuff->samples[i]));
 	}
 }
 
@@ -164,8 +164,7 @@ ALWAYS_INLINE F32x2 smoothingFilter(const F32x2 in, const F32x2 alpha, const F32
 	return F32x2Add(mulRes1, mulRes2);
 }
 
-//ALWAYS_INLINE
-F32x2 envelopeCalc(const EnvelopeCoeffs *coeffs, EnvelopeStates *states,
+ALWAYS_INLINE F32x2 envelopeCalc(const EnvelopeCoeffs *coeffs, EnvelopeStates *states,
 								 const F32x2 sample)
 {
 	// calculates signal envelope
@@ -197,9 +196,8 @@ ALWAYS_INLINE F32x2 gainSmoothing(const F32x2 gain, const F32x2 alphaAttack,
 {
 	F32x2 alpha = alphaAttack;
 	F32x2MovIfTrue(&alpha, alphaRelease, F32x2LessThan(*prevGain, gain));
-	*prevGain = smoothingFilter(gain, alpha, *prevGain);
 
-	return *prevGain;
+	return smoothingFilter(gain, alpha, *prevGain);
 }
 
 
@@ -238,6 +236,7 @@ ALWAYS_INLINE F32x2 expander(const ExpanderCoeffs *coeffs, ExpanderStates *state
 		states->isWorked = isExpander;
 	}
 
+	states->prevGain = gain;
 	return gain;
 }
 
@@ -250,12 +249,12 @@ ALWAYS_INLINE F32x2 compressor(const CompressorCoeffs *coeffs, CompressorStates 
 	if (coeffs->isActive)
 	{
 		F32x2 comprGain = dynamicRangeCore(coeffs, states, envelope);
-
 		Boolx2 isCompressor = F32x2LessThan(coeffs->threshold, envelope);
 		F32x2MovIfTrue(&gain, comprGain, isCompressor);
 		states->isWorked = isCompressor;
 	}
 
+	states->prevGain = gain;
 	return gain;
 }
 
