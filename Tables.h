@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 
-extern const int32_t log2OutputsTable[128];
-extern const int32_t powOf2OutputsTable[255];
+extern const int32_t log2OutputsTable[130];
+extern const int32_t powOf2OutputsTable[257];
 
 #endif /* TABLES */

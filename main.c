@@ -60,38 +60,176 @@ static inline void run(FILE *inputFilePtr, FILE *outputFilePtr, RingBuff *ringBu
 						const Coeffs *coeffs, States *states);
 void setParams(Params *params, Coeffs *coeffs, States *states);
 
+ALWAYS_INLINE F32x2 F32x2OldLog2(F32x2 x)
+{
+	// Input/Output in Q27
+	F32x2 index = 0;
+	F32x2 res = F32x2Zero();
+	Boolx2 isZero = F32x2Equal(x, F32x2Zero());
+	Boolx2 isCalculated = isZero;
+	F32x2MovIfTrue(&res, F32x2Set(INT32_MIN), isZero);
+	x = F32x2Abs(x);
+	int8_t clsH = AE_NSAZ32_L(AE_SEL32_LH(x, x));
+	int8_t clsL = AE_NSAZ32_L(x);
+	F32x2 cls = F32x2Join(clsH, clsL);
+	Boolx2 isBigger = Boolx2AND(F32x2LessThan(cls, F32x2Set(4)), Boolx2NOT(isCalculated));
+	Boolx2 isSmaller = Boolx2AND(F32x2LessThan(F32x2Set(4), cls), Boolx2NOT(isCalculated));
+	F32x2MovIfTrue(&x, F32x2RightShiftA_Apart(x, 4 - clsH, 4 - clsL), isBigger);
+	F32x2MovIfTrue(&res, F32x2LeftShiftAS(F32x2Sub(F32x2Set(4), cls), 27), isBigger);
+	F32x2MovIfTrue(&x, F32x2LeftShiftAS_Apart(x, clsH - 4, clsL - 4), isSmaller);
+	F32x2MovIfTrue(&res, F32x2LeftShiftAS(F32x2Sub(F32x2Zero(), F32x2Sub(cls, F32x2Set(4))), 27), isSmaller);
+	// Here 0x4000000 is min (first) value in log2InputsTable and 0x81020 is the step between values
+	index = F32x2BuiltInDiv(F32x2Sub(x, F32x2Set(0x4000000)), F32x2Set(0x81020));
+	return F32x2Add(res, F32x2Join(
+									log2OutputsTable[(int)F32x2ToI32Extract_h(index)],
+									log2OutputsTable[(int)F32x2ToI32Extract_l(index)]));
+}
+
+ALWAYS_INLINE F32x2 F32x2OldPowOf2(F32x2 x)
+{
+	// Input/Output in Q27
+	F32x2 index = 0;
+	F32x2 res = 0x8000000;
+	F32x2 mask = F32x2Set(0x78000000);
+	Boolx2 isNegative = F32x2LessThan(x, F32x2Zero());
+	F32x2 count = F32x2AND(F32x2Abs(x), mask);
+	F32x2 countShifted = F32x2RightShiftA(count, 27);
+	F32x2MovIfTrue(&x, F32x2Sub(x, count), Boolx2NOT(isNegative));
+	F32x2MovIfTrue(&res,
+			F32x2LeftShiftAS_Apart(res, (int)F32x2ToI32Extract_h(countShifted), (int)F32x2ToI32Extract_l(countShifted)),
+			Boolx2NOT(isNegative));
+	F32x2MovIfTrue(&x, F32x2Add(x, count), isNegative);
+	F32x2MovIfTrue(&res,
+			F32x2RightShiftA_Apart(res, (int)F32x2ToI32Extract_h(countShifted), (int)F32x2ToI32Extract_l(countShifted)),
+			isNegative);
+	index = F32x2BuiltInDiv(x, F32x2Set(0x102040));
+	F32x2MovIfTrue(&index, F32x2Add(F32x2Abs(index), F32x2Set(127)), F32x2LessThan(index, F32x2Zero()));
+	return F32x2LeftShiftAS(F32x2Mul(res, F32x2Join(
+										powOf2OutputsTable[(int)F32x2ToI32Extract_h(index)],
+										powOf2OutputsTable[(int)F32x2ToI32Extract_l(index)])), 4);
+}
+
+ALWAYS_INLINE F32x2 F32x2OldPow(F32x2 x, F32x2 y)
+{
+	// Input/Output in Q27
+	return F32x2OldPowOf2(F32x2LeftShiftAS(F32x2Mul(y, F32x2OldLog2(x)), 4));
+}
+
+
+double callLog2Diff(double x)
+{
+	F32x2 fixres = F32x2Log2(doubleToF32x2Set(x / 16));
+	double dres = log2(x);
+	double err = fabs(dres - (F32x2ToDoubleExtract_h(fixres) * 16));
+
+	printf("log:\n");
+	printf("fixed: %.30f\n", F32x2ToDoubleExtract_h(fixres) * 16);
+	printf("double: %.30f\n", dres);
+	printf("err: %.30f\n", err);
+
+	return err;
+}
+
+double callPowOf2Diff(double x)
+{
+	F32x2 fixres = F32x2PowOf2(doubleToF32x2Set(x / 16));
+	double dres = pow(2.0, x);
+	double err = fabs(dres - (F32x2ToDoubleExtract_h(fixres) * 16));
+
+	printf("log:\n");
+	printf("fixed: %.30f\n", F32x2ToDoubleExtract_h(fixres) * 16);
+	printf("double: %.30f\n", dres);
+	printf("err: %.30f\n", err);
+
+	return err;
+}
+
+double callPowDiff(double x, double y)
+{
+	F32x2 fixres = F32x2Pow(doubleToF32x2Set(x / 16), doubleToF32x2Set(y / 16));
+	double dres = pow(x, y);
+	double err = fabs(dres - (F32x2ToDoubleExtract_h(fixres) * 16));
+
+	printf("log:\n");
+	printf("fixed: %.30f\n", F32x2ToDoubleExtract_h(fixres) * 16);
+	printf("double: %.30f\n", dres);
+	printf("err: %.30f\n", err);
+
+	return err;
+}
+
+
+F32x2 callOldLog2(F32x2 x)
+{
+	return F32x2OldLog2(x);
+}
+
+F32x2 callOldPowOf2(F32x2 x)
+{
+	return F32x2OldPowOf2(x);
+}
+
+F32x2 callOldPow(F32x2 x, F32x2 y)
+{
+	return F32x2OldPow(x, y);
+}
+
+
+F32x2 callLog2(F32x2 x)
+{
+	return F32x2Log2(x);
+}
+
+F32x2 callPowOf2(F32x2 x)
+{
+	return F32x2PowOf2(x);
+}
+
+F32x2 callPow(F32x2 x, F32x2 y)
+{
+	return F32x2Pow(x, y);
+}
 
 int main()
 {
-// F32x2Pow test here:
-//	double x1 = -2.978 / 16;
-//	double x2 = 5.79 / 16;
-//	double y1 = -2.0 / 16;
-//	double y2 = -0.3 / 16;
+//// F32x2Pow test here:
+//	double x1 = 2.36851 / 16;
+//	double x2 = 0.6846 / 16;
+//	double y1 = 1.6732 / 16;
+//	double y2 = 0.31003 / 16;
 //	F32x2 x = doubleToF32x2Join(x1, x2);
 //	F32x2 y = doubleToF32x2Join(y1, y2);
-//	F32x2 res = F32x2Pow(x, y);
+//	F32x2 res = callPowOf2(x, y);
 //	double z1 = F32x2ToDoubleExtract_h(res) * 16;
 //	double z2 = F32x2ToDoubleExtract_l(res) * 16;
 
-	FILE *inputFilePtr = openFile(INPUT_FILE_NAME, 0);
-	FILE *outputFilePtr = openFile(OUTPUT_FILE_NAME, 1);
-	uint8_t headerBuff[FILE_HEADER_SIZE];
-	Params params;
-	Coeffs coeffs;
-	RingBuff ringBuff;
-	States states;
+	double x = 13.36851;
+	double y = 0.0006846;
+	double z = 1.6732;
+	double k = -5.31003;
 
-	readHeader(headerBuff, inputFilePtr);
-	writeHeader(headerBuff, outputFilePtr);
+	printf("log: %.30f\n", callPowDiff(x, y));
+//	printf("powOf2: %.30f\n", callPowOf2Diff(x));
+//	printf("pow: %.30f\n", callPowDiff(x, y));
 
-	AmplitudeProcInit(&params, &coeffs, &ringBuff, &states);
-	setParams(&params, &coeffs, &states);
-
-	run(inputFilePtr, outputFilePtr, &ringBuff, &coeffs, &states);
-
-	fclose(inputFilePtr);
-	fclose(outputFilePtr);
+//	FILE *inputFilePtr = openFile(INPUT_FILE_NAME, 0);
+//	FILE *outputFilePtr = openFile(OUTPUT_FILE_NAME, 1);
+//	uint8_t headerBuff[FILE_HEADER_SIZE];
+//	Params params;
+//	Coeffs coeffs;
+//	RingBuff ringBuff;
+//	States states;
+//
+//	readHeader(headerBuff, inputFilePtr);
+//	writeHeader(headerBuff, outputFilePtr);
+//
+//	AmplitudeProcInit(&params, &coeffs, &ringBuff, &states);
+//	setParams(&params, &coeffs, &states);
+//
+//	run(inputFilePtr, outputFilePtr, &ringBuff, &coeffs, &states);
+//
+//	fclose(inputFilePtr);
+//	fclose(outputFilePtr);
 	return 0;
 }
 

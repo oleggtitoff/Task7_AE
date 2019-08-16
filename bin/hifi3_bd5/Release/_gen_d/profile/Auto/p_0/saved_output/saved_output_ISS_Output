@@ -1,18 +1,31 @@
-C:\usr\xtensa\XtDevTools\install\tools\RI-2019.1-win32\XtensaTools\bin\xt-run --xtensa-core=hifi3_bd5 --xtensa-system=C:\usr\xtensa\XtDevTools\install\builds\RI-2019.1-win32\hifi3_bd5\config --xtensa-params= --console --turbo --summary --client=C:\usr\xtensa\Xplorer-8.0.10-workspaces\workspace\Task7_AE\bin\hifi3_bd5\Release\_gen_d\profile\Auto\p_0\iss.clientcmds C:\usr\xtensa\Xplorer-8.0.10-workspaces\workspace\Task7_AE\bin\hifi3_bd5\Release\Task7_AE
+C:\usr\xtensa\XtDevTools\install\tools\RI-2019.1-win32\XtensaTools\bin\xt-run --xtensa-core=hifi3_bd5 --xtensa-system=C:\usr\xtensa\XtDevTools\install\builds\RI-2019.1-win32\hifi3_bd5\config --xtensa-params= --console --summary --client=C:\usr\xtensa\Xplorer-8.0.10-workspaces\workspace\Task7_AE\bin\hifi3_bd5\Release\_gen_d\profile\Auto\p_0\iss.clientcmds C:\usr\xtensa\Xplorer-8.0.10-workspaces\workspace\Task7_AE\bin\hifi3_bd5\Release\Task7_AE
 
-Xtensa Core: "hifi3_bd5"  TurboXim Version: 14.01
+Xtensa Core: "hifi3_bd5"  ISS Version: 14.01
 
-Time for Simulation = 16.20 seconds  (+ 0.53 seconds for Initialization)
+Time for Simulation = 0.01 seconds
 
-Current PC = 0x60008c9f
+Current PC = 0x60005987
 
-Events                             Number  Number
-                                           per 100
-                                           instrs 
+Events                           Number  Number
+                                         per 100
+                                         instrs 
 
-Committed instructions          51359267 ( 100.00 )
-Taken branches                   2032320 (   3.96 )
-Exceptions                          1879 (   0.00 )
-   WindowOverflow                    940 (   0.00 )
-   WindowUnderflow                   939 (   0.00 )
+Committed instructions            2354 ( 100.00 )
+Taken branches                     280 (  11.89 )
+Exceptions                           1 (   0.04 )
+   WindowOverflow                    1 (   0.04 )
+Loads                              150 (   6.37 )
+Stores                              38 (   1.61 )
+
+Cycles: total = 3930
+                                                Summed |          Summed
+                                        CPI      CPI   |% Cycle  % Cycle
+Committed instructions          2354 ( 1.0000   1.0000 |  59.90    59.90 )
+Taken branches                   567 ( 0.2409   1.2409 |  14.43    74.33 )
+Pipeline interlocks               41 ( 0.0174   1.2583 |   1.04    75.37 )
+Exceptions                         5 ( 0.0021   1.2604 |   0.13    75.50 )
+Sync replays                     585 ( 0.2485   1.5089 |  14.89    90.38 )
+Special instructions             364 ( 0.1546   1.6636 |   9.26    99.64 )
+Loop overhead                      9 ( 0.0038   1.6674 |   0.23    99.87 )
+Reset                              5 ( 0.0021   1.6695 |   0.13   100.00 )
 
