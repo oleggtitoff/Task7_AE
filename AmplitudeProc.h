@@ -13,38 +13,36 @@
 #include "ExternalAndInternalTypesConverters.h"
 
 #define RING_BUFF_SIZE 		128
-#define DATA_BUFF_SIZE 		1024	//must be twice bigger than RING_BUFF_SIZE#define CHANNELS 2
+#define DATA_BUFF_SIZE 		512		//must be twice bigger than RING_BUFF_SIZE#define CHANNELS 2
 
 
 typedef enum {
-	sampleRateID 			= 1,
+	noiseGateIsActiveID 	= 201,
+	expanderIsActiveID 		= 202,
+	compressorIsActiveID 	= 203,
+	limiterIsActiveID 		= 204,
 
-	noiseGateIsActiveID 	= 2,
-	expanderIsActiveID 		= 3,
-	compressorIsActiveID 	= 4,
-	limiterIsActiveID 		= 5,
+	noiseThrID 				= 205,
+	expanderHighThrID 		= 206,
+	compressorLowThrID 		= 207,
+	limiterThrID 			= 208,
 
-	noiseThrID 				= 6,
-	expanderHighThrID 		= 7,
-	compressorLowThrID 		= 8,
-	limiterThrID 			= 9,
+	expanderRatioID 		= 209,
+	compressorRatioID 		= 210,
 
-	expanderRatioID 		= 10,
-	compressorRatioID 		= 11,
-
-	envelopeAttackTimeID 	= 12,
-	envelopeReleaseTimeID 	= 13,
-	expanderAttackTimeID 	= 14,
-	expanderReleaseTimeID 	= 15,
-	compressorAttackTimeID 	= 16,
-	compressorReleaseTimeID = 17
-} paramID;
+	envelopeAttackTimeID 	= 211,
+	envelopeReleaseTimeID 	= 212,
+	expanderAttackTimeID 	= 213,
+	expanderReleaseTimeID 	= 214,
+	compressorAttackTimeID 	= 215,
+	compressorReleaseTimeID = 216
+} amplitudeProcParamID;
 
 
 typedef struct {
 	uint16_t currNum;
-	F32x2 samples[RING_BUFF_SIZE];	// Q31
-	F32x2 maxSample;				// Q31
+	F32x2 samples[RING_BUFF_SIZE];	// Q27
+	F32x2 maxSample;				// Q27
 } RingBuff;
 
 typedef struct {
@@ -69,7 +67,7 @@ typedef struct {
 	double expanderReleaseTime;		// in ms
 	double compressorAttackTime;	// in ms
 	double compressorReleaseTime;	// in ms
-} Params;
+} AmplitudeProcParams;
 
 typedef struct {
 	F32x2 alphaAttack;			// Q31
@@ -78,13 +76,13 @@ typedef struct {
 
 typedef struct {
 	int8_t isActive;
-	F32x2 threshold;			// Q31
+	F32x2 threshold;			// Q27
 } LimiterCoeffs;
 typedef LimiterCoeffs NoiseGateCoeffs;
 
 typedef struct {
 	int8_t isActive;
-	F32x2 threshold;			// Q31
+	F32x2 threshold;			// Q27
 	F32x2 C1;					// Q27
 	F32x2 C2;					// Q27
 	F32x2 alphaAttack;			// Q31
@@ -98,10 +96,10 @@ typedef struct {
 	LimiterCoeffs limiter;
 	CompressorCoeffs compressor;
 	ExpanderCoeffs expander;
-} Coeffs;
+} AmplitudeProcCoeffs;
 
 typedef struct {
-	F32x2 prevSample;			// Q31
+	F32x2 prevSample;			// Q27
 } EnvelopeStates;
 
 typedef struct {
@@ -115,17 +113,20 @@ typedef struct {
 typedef CompressorStates ExpanderStates;
 
 typedef struct {
+	RingBuff ringBuff;
 	EnvelopeStates envelope;
 	NoiseGateStates noiseGate;
 	CompressorStates compressor;
 	ExpanderStates expander;
-} States;
+} AmplitudeProcStates;
 
 
-Status AmplitudeProcInit(Params *params, Coeffs *coeffs, RingBuff *ringBuff, States *states);
-Status AmplitudeProcSetParam(Params *params, Coeffs *coeffs, States *states,
-							 const uint16_t id, double value);
-Status ringBuffSet(RingBuff *ringBuff, int32_t *dataBuff);
-void AmplitudeProc_Process(const Coeffs *coeffs, RingBuff *ringBuff, States *states);
+Status AmplitudeProcInit(AmplitudeProcParams *params, AmplitudeProcCoeffs *coeffs,
+						 AmplitudeProcStates *states, int sampleRate);
+Status AmplitudeProcSetParam(AmplitudeProcParams *params, AmplitudeProcCoeffs *coeffs,
+							 AmplitudeProcStates *states, const uint16_t id, double value);
+void ringBuffAddValue(RingBuff *ringBuff, F32x2 value);
+F32x2 AmplitudeProc_Process(const AmplitudeProcCoeffs *coeffs, AmplitudeProcStates *states,
+						   F32x2 sample);
 
 #endif /* AMPLITUDE_PROC */

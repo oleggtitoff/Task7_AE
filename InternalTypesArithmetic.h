@@ -39,6 +39,14 @@ ALWAYS_INLINE F32x2 F32x2XOR(const F32x2 x, const F32x2 y)
 	return AE_XOR32(x, y);
 }
 
+ALWAYS_INLINE F64x2 F64x2AND(const F64x2 x, const F64x2 y)
+{
+	F64x2 res;
+	res.h = AE_AND64(x.h, y.h);
+	res.l = AE_AND64(x.l, y.l);
+	return res;
+}
+
 //
 // MIN/MAX OPERATIONS
 //
