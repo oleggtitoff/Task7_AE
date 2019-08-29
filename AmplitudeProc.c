@@ -184,7 +184,6 @@ ALWAYS_INLINE F32x2 instantGainCalc(const F32x2 envelope, const F32x2 C1, const 
 {
 	// calculates instant gain value
 
-	//F32x2 envelopeInQ27 = F32x2RightShiftA(envelope, 4);
 	F32x2 negC1 	  	= F32x2Sub(F32x2Zero(), C1);
 	F32x2 powRes	  	= F32x2Pow(envelope, negC1);
 	F32x2 mulRes	 	= F32x2Mul(C2, powRes);
@@ -203,7 +202,8 @@ ALWAYS_INLINE F32x2 gainSmoothing(const F32x2 gain, const F32x2 alphaAttack,
 }
 
 
-ALWAYS_INLINE F32x2 noiseGate(const NoiseGateCoeffs *coeffs, NoiseGateStates *states, F32x2 envelope)
+//ALWAYS_INLINE
+static F32x2 noiseGate(const NoiseGateCoeffs *coeffs, NoiseGateStates *states, F32x2 envelope)
 {
 	// changes gain to zero, if envelope sample is under the threshold
 
@@ -224,7 +224,8 @@ ALWAYS_INLINE F32x2 dynamicRangeCore(const CompressorCoeffs *coeffs, CompressorS
 	return gain;
 }
 
-ALWAYS_INLINE F32x2 expander(const ExpanderCoeffs *coeffs, ExpanderStates *states,
+//ALWAYS_INLINE
+static F32x2 expander(const ExpanderCoeffs *coeffs, ExpanderStates *states,
 							  const F32x2 envelope)
 {
 	F32x2 gain = F32x2Set(0x08000000);		// Q27
@@ -242,7 +243,8 @@ ALWAYS_INLINE F32x2 expander(const ExpanderCoeffs *coeffs, ExpanderStates *state
 	return gain;
 }
 
-ALWAYS_INLINE F32x2 compressor(const CompressorCoeffs *coeffs, CompressorStates *states,
+//ALWAYS_INLINE
+static F32x2 compressor(const CompressorCoeffs *coeffs, CompressorStates *states,
 							   const F32x2 envelope)
 {
 	F32x2 gain = F32x2Set(0x08000000);		// Q27
@@ -260,7 +262,8 @@ ALWAYS_INLINE F32x2 compressor(const CompressorCoeffs *coeffs, CompressorStates 
 	return gain;
 }
 
-ALWAYS_INLINE F32x2 limiter(const LimiterCoeffs *coeffs, RingBuff *ringBuff)
+//ALWAYS_INLINE
+static F32x2 limiter(const LimiterCoeffs *coeffs, RingBuff *ringBuff)
 {
 	// changes gain to new limited gain, if maxSample in ring buffer with applied
 	// current gain is over the threshold
@@ -433,18 +436,16 @@ F32x2 AmplitudeProc_Process(const AmplitudeProcCoeffs *coeffs, AmplitudeProcStat
 	F32x2 res;																			// Q27
 
 	// NOISE GATE
-	F32x2 tmp = noiseGate(&coeffs->noiseGate, &states->noiseGate, envelope);
-	F32x2MovIfTrue(&gain, F32x2Min(gain, tmp), states->noiseGate.isWorked);
+	F32x2 tmpGain = noiseGate(&coeffs->noiseGate, &states->noiseGate, envelope);
+	F32x2MovIfTrue(&gain, tmpGain, states->noiseGate.isWorked);
 
 	// EXPANDER
-	F32x2MovIfTrue(&gain,
-				   F32x2Min(gain, expander(&coeffs->expander, &states->expander, envelope)),
-				   states->expander.isWorked);
+	tmpGain = expander(&coeffs->expander, &states->expander, envelope);
+	F32x2MovIfTrue(&gain, F32x2Min(gain, tmpGain), states->expander.isWorked);
 
 	// COMPRESSOR
-	F32x2MovIfTrue(&gain,
-				   F32x2Min(gain, compressor(&coeffs->compressor, &states->compressor, envelope)),
-				   states->compressor.isWorked);
+	tmpGain = compressor(&coeffs->compressor, &states->compressor, envelope);
+	F32x2MovIfTrue(&gain, F32x2Min(gain, tmpGain), states->compressor.isWorked);
 
 	// if nothing was applied, gain sets to "1"
 	isProcessed = Boolx2OR(states->noiseGate.isWorked, states->expander.isWorked);
@@ -457,8 +458,8 @@ F32x2 AmplitudeProc_Process(const AmplitudeProcCoeffs *coeffs, AmplitudeProcStat
 	ringBuffAddValue(&states->ringBuff, res);
 
 	// LIMITER
-	res = F32x2Mul(states->ringBuff.samples[states->ringBuff.currNum],
-				   limiter(&coeffs->limiter, &states->ringBuff));
+	tmpGain = limiter(&coeffs->limiter, &states->ringBuff);
+	res = F32x2Mul(states->ringBuff.samples[states->ringBuff.currNum], tmpGain);
 	res = F32x2LeftShiftAS(res, 4);
 
 	return res;

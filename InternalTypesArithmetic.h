@@ -181,8 +181,7 @@ ALWAYS_INLINE F32x2 F32x2BuiltInDiv(F32x2 x, F32x2 y)
 					(int32_t)F32x2ToI32Extract_l(x) / (int32_t)F32x2ToI32Extract_l(y));
 }
 
-//ALWAYS_INLINE
-static F32x2 F32x2InterpolL(const F32x2 x, const F32x2 y, const F32x2 alpha)
+ALWAYS_INLINE F32x2 F32x2InterpolL(const F32x2 x, const F32x2 y, const F32x2 alpha)
 {
 	F32x2 xValue = F32x2Mul(x, F32x2Sub(0x7fffffff, alpha));
 	F32x2 yValue = F32x2Mul(y, alpha);
@@ -196,21 +195,28 @@ ALWAYS_INLINE F32x2 F32x2Log2(F32x2 x)
 	// Input/Output in Q27
 
 	F32x2 res = F32x2Zero();
+
+	// If x == 0, res = INT32_MIN:
 	Boolx2 isZero = F32x2Equal(x, F32x2Zero());
 	Boolx2 isCalculated = isZero;
 	F32x2MovIfTrue(&res, F32x2Set(INT32_MIN), isZero);
 
+	// x = absolute value of x:
 	x = F32x2Abs(x);
 
+	// Amount to normalize:
 	int8_t clsH = AE_NSAZ32_L(AE_SEL32_LH(x, x));
 	int8_t clsL = AE_NSAZ32_L(x);
 	F32x2 cls = F32x2Join(clsH, clsL);
-	Boolx2 isBigger = Boolx2AND(F32x2LessThan(cls, F32x2Set(4)), Boolx2NOT(isCalculated));
-	Boolx2 isSmaller = Boolx2AND(F32x2LessThan(F32x2Set(4), cls), Boolx2NOT(isCalculated));
 
+	// If x is bigger, than 1:
+	Boolx2 isBigger = Boolx2AND(F32x2LessThan(cls, F32x2Set(4)), Boolx2NOT(isCalculated));
+	// If x is smaller, than 0.5:
+	Boolx2 isSmaller = F32x2LessThan(F32x2Set(4), cls);
+
+	// Normalization:
 	F32x2MovIfTrue(&x, F32x2RightShiftA_Apart(x, 4 - clsH, 4 - clsL), isBigger);
 	F32x2MovIfTrue(&res, F32x2LeftShiftAS(F32x2Sub(F32x2Set(4), cls), 27), isBigger);
-
 	F32x2MovIfTrue(&x, F32x2LeftShiftAS_Apart(x, clsH - 4, clsL - 4), isSmaller);
 	F32x2MovIfTrue(&res, F32x2LeftShiftAS(F32x2Sub(F32x2Zero(), F32x2Sub(cls, F32x2Set(4))), 27), isSmaller);
 
@@ -219,6 +225,7 @@ ALWAYS_INLINE F32x2 F32x2Log2(F32x2 x)
 	F32x2 lowIndex = F32x2RightShiftA(F32x2Sub(x, F32x2Set(0x4000000)), 19);
 	F32x2 highIndex = F32x2Add(lowIndex, F32x2Set(0x1));
 
+	// Get values from table:
 	F32x2 lowValue = F32x2Join(
 								log2OutputsTable[(int)F32x2ToI32Extract_h(lowIndex)],
 								log2OutputsTable[(int)F32x2ToI32Extract_l(lowIndex)]);
@@ -226,8 +233,8 @@ ALWAYS_INLINE F32x2 F32x2Log2(F32x2 x)
 								log2OutputsTable[(int)F32x2ToI32Extract_h(highIndex)],
 								log2OutputsTable[(int)F32x2ToI32Extract_l(highIndex)]);
 
+	// Linear interpolation
 	F32x2 tableRes = F32x2InterpolL(lowValue, highValue, alpha);
-
 	return F32x2Add(res, tableRes);
 }
 
@@ -240,15 +247,17 @@ ALWAYS_INLINE F32x2 F32x2PowOf2(F32x2 x)
 	Boolx2 isNegative = F32x2LessThan(x, F32x2Zero());
 	F32x2 count = F32x2AND(F32x2Abs(x), mask);
 	F32x2 countShifted = F32x2RightShiftA(count, 27);
+	F32x2 tmpX = x;
+	F32x2 tmpRes = res;
 
-	F32x2MovIfTrue(&x, F32x2Sub(x, count), Boolx2NOT(isNegative));
-	F32x2MovIfTrue(&res,
-			F32x2LeftShiftAS_Apart(res, (int)F32x2ToI32Extract_h(countShifted), (int)F32x2ToI32Extract_l(countShifted)),
-			Boolx2NOT(isNegative));
+	x = F32x2Sub(tmpX, count);
+	res = F32x2LeftShiftAS_Apart(tmpRes, (int)F32x2ToI32Extract_h(countShifted),
+			   	   	   	   	     (int)F32x2ToI32Extract_l(countShifted));
 
-	F32x2MovIfTrue(&x, F32x2Add(x, count), isNegative);
+	F32x2MovIfTrue(&x, F32x2Add(tmpX, count), isNegative);
 	F32x2MovIfTrue(&res,
-			F32x2RightShiftA_Apart(res, (int)F32x2ToI32Extract_h(countShifted), (int)F32x2ToI32Extract_l(countShifted)),
+			F32x2RightShiftA_Apart(tmpRes, (int)F32x2ToI32Extract_h(countShifted),
+								   (int)F32x2ToI32Extract_l(countShifted)),
 			isNegative);
 
 	F32x2 alphaMask = F32x2AND(x, F32x2Set(0xfffff));
@@ -257,6 +266,7 @@ ALWAYS_INLINE F32x2 F32x2PowOf2(F32x2 x)
 	lowIndex = F32x2Add(lowIndex, F32x2Set(128));
 	F32x2 highIndex = F32x2Add(lowIndex, F32x2Set(0x1));
 
+	// Get values from table:
 	F32x2 lowValue = F32x2Join(
 								powOf2OutputsTable[(int)F32x2ToI32Extract_h(lowIndex)],
 								powOf2OutputsTable[(int)F32x2ToI32Extract_l(lowIndex)]);
@@ -264,8 +274,8 @@ ALWAYS_INLINE F32x2 F32x2PowOf2(F32x2 x)
 								powOf2OutputsTable[(int)F32x2ToI32Extract_h(highIndex)],
 								powOf2OutputsTable[(int)F32x2ToI32Extract_l(highIndex)]);
 
+	// Linear interpolation
 	F32x2 tableRes = F32x2InterpolL(lowValue, highValue, alpha);
-
 	return F32x2LeftShiftAS(F32x2Mul(res, tableRes), 4);
 }
 
