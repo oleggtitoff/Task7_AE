@@ -174,6 +174,82 @@ ALWAYS_INLINE F32x2 F32x2Div(F32x2 x, F32x2 y)
 	return x;
 }
 
+ALWAYS_INLINE F32x2 F32x2NRDiv(F32x2 x, F32x2 y)
+{
+	// Input/Output in Q31
+
+	// coeffs
+	F32x2 c1 = F32x2Set(0x43e0f83e);		// Q28
+	F32x2 c2 = F32x2Set(0xa2e8ba2f);		// Q28
+	F32x2 c3 = F32x2Set(0x295fad40);		// Q28
+
+	F32x2 r;			// Q28
+	F32x2 e;			// Q28
+	F32x2 k;			// Q28
+	F32x2 res;			// Q31
+
+	int8_t i;
+	Boolx2 isCalculated   = (Boolx2)0;
+	// result sign definition
+	Boolx2 resIsNegative  = F32x2LessThan(F32x2XOR(x, y), F32x2Zero());
+
+	// get absolute values of x and y
+	x = F32x2Abs(x);
+	y = F32x2Abs(y);
+
+	// special cases handling
+	// if x is zero, res = 0:
+	Boolx2 xIsZero = F32x2Equal(x, F32x2Zero());
+	F32x2MovIfTrue(&res, F32x2Zero(), xIsZero);
+	isCalculated   = xIsZero;
+
+	// if y is zero, res = INT32_MAX:
+	Boolx2 yIsZero = F32x2Equal(y, F32x2Zero());
+	F32x2MovIfTrue(&res, F32x2Set(INT32_MAX), yIsZero);
+	isCalculated   = Boolx2OR(isCalculated, yIsZero);
+
+	// if x > y, x = y
+	Boolx2 xIsBiggerThanY = F32x2LessThan(y, x);
+	F32x2MovIfTrue(&x, y, xIsBiggerThanY);
+
+
+	// normalization to [0.5, 1.0]
+	int8_t clsH = AE_NSAZ32_L(AE_SEL32_LH(y, y));
+	int8_t clsL = AE_NSAZ32_L(y);
+	x = F32x2LeftShiftAS_Apart(x, clsH, clsL);
+	y = F32x2LeftShiftAS_Apart(y, clsH, clsL);
+
+	// precalculation
+	F32x2 mulRes1 = F32x2Mul(y, c3);
+	F32x2 addRes1 = F32x2Add(c2, mulRes1);
+	F32x2 mulRes2 = F32x2Mul(y, addRes1);
+	r = F32x2Add(c1, mulRes2);
+
+	// loop calculation
+	for (i = 0; i < 2; i++)
+	{
+		mulRes1 = F32x2Mul(y, r);
+		e = F32x2Sub(F32x2Set(0x0fffffff), mulRes1);
+
+		mulRes1 = F32x2Mul(r, e);
+		k = F32x2LeftShiftAS(mulRes1, 3);
+
+		mulRes1 = F32x2Mul(k, e);
+		mulRes1 = F32x2LeftShiftAS(mulRes1, 3);
+		addRes1 = F32x2Add(k, mulRes1);
+		r = F32x2Add(r, addRes1);
+	}
+
+	// final multiplication
+	mulRes1 = F32x2Mul(x, r);
+	F32x2MovIfTrue(&res, F32x2LeftShiftAS(mulRes1, 3), Boolx2NOT(isCalculated));
+
+	// if result must be negative
+	F32x2MovIfTrue(&res, F32x2Sub(F32x2Zero(), res), resIsNegative);
+
+	return res;
+}
+
 ALWAYS_INLINE F32x2 F32x2BuiltInDiv(F32x2 x, F32x2 y)
 {
 	return F32x2Join(
@@ -183,7 +259,7 @@ ALWAYS_INLINE F32x2 F32x2BuiltInDiv(F32x2 x, F32x2 y)
 
 ALWAYS_INLINE F32x2 F32x2InterpolL(const F32x2 x, const F32x2 y, const F32x2 alpha)
 {
-	F32x2 xValue = F32x2Mul(x, F32x2Sub(0x7fffffff, alpha));
+	F32x2 xValue = F32x2Mul(x, F32x2Sub(F32x2Set(0x7fffffff), alpha));
 	F32x2 yValue = F32x2Mul(y, alpha);
 	F32x2 res = F32x2Add(xValue, yValue);
 

@@ -8,13 +8,16 @@
 #ifndef INTERNAL_TYPES_DEFINITIONS
 #define INTERNAL_TYPES_DEFINITIONS
 
+
 #include <xtensa/tie/xt_hifi2.h>
+
 
 //
 // GLOBAL MACRO DEFINITIONS
 //
 #define ALWAYS_INLINE static inline __attribute__((always_inline))
 #define NEVER_INLINE static __attribute__((noinline))
+
 
 //
 // INTERNAL TYPES DEFINITIONS

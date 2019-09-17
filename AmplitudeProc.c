@@ -115,14 +115,14 @@ ALWAYS_INLINE void coeffsCalc(double *C1, double *C2, const double ratio,
 	// calculates coefficients for expander, or compressor
 	// if type = 0, calculates for expander, else - for compressor
 
-	if (!type)
-	{
-		*C1 = ((double)1 / ratio) - 1;
-	}
-	else
-	{
+//	if (!type)
+//	{
+//		*C1 = ((double)1 / ratio) - 1;
+//	}
+//	else
+//	{
 		*C1 = (double)1 - ((double)1 / ratio);
-	}
+//	}
 
 	*C2 = pow(dBtoGain(threshold), *C1);
 }
